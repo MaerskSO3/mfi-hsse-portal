@@ -341,15 +341,15 @@ const RAW_REGISTERS = [
 
 let registers = RAW_REGISTERS.map(function(r) {
   return {
-    code: "MFI-DVO-HSSE-" + r,
-    modCode: r.slice(0,2),
-    module: r,
-    name: r,
-    ref: r,
-    freq: r,
-    location: r,
-    status: r,
-    fileUrl: r
+    code: "MFI-DVO-HSSE-" + r.at(0),
+    modCode: r.at(0).slice(0, 2),
+    module: r.at(1),
+    name: r.at(2),
+    ref: r.at(3),
+    freq: r.at(4),
+    location: r.at(5),
+    status: r.at(6),
+    fileUrl: r.at(7)
   };
 });
 
