@@ -295,19 +295,19 @@ let currentModalContext = null;
     });
   };
   s.onerror = function() {
-    showAuthMsg("Failed to load Supabase SDK. Check internet connection.", true);
+    showAuthMsg("Failed to load database connection. Please check your internet.", true);
   };
   document.head.appendChild(s);
 })();
 
 const ROLE_SCOPES = {
-  safety_officer: ["01","02","03","04","05","06","07","08","09","10","11","12"],
-  management: ["01","02","12"],
-  operations: ["03","04","06","07"],
-  viewer:
+  safety_officer: new Array("01","02","03","04","05","06","07","08","09","10","11","12"),
+  management: new Array("01","02","12"),
+  operations: new Array("03","04","06","07"),
+  viewer: new Array()
 };
 
-const MODULES = [
+const MODULES = new Array(
   "ALL",
   "01 - Management System & ISO",
   "02 - Legal & Regulatory",
@@ -321,52 +321,52 @@ const MODULES = [
   "10 - Environmental & PCO",
   "11 - Security Management",
   "12 - CAPA & Performance"
-];
+);
 
-const RAW_REGISTERS = [
-  ["01-001","01 - Management System & ISO","Master OSH Program Monitoring Checklist","RA 11058 / DO 198-18 Sec. 12","Annual / Quarterly","Depot 1 & 2","Complied",""],
-  ["01-002","01 - Management System & ISO","HSSE Policy Implementation Monitoring","ISO 45001 Clause 5.2","Annual","Depot 1 & 2","Complied",""],
-  ["01-004","01 - Management System & ISO","ISO 45001 Compliance Checklist","ISO 45001:2018","Quarterly","Depot 1 & 2","Complied",""],
-  ["01-007","01 - Management System & ISO","HSSE Monthly Accomplishment Report","DO 198-18 / Internal","Monthly","Depot 1 & 2","Due Soon",""],
-  ["02-001","02 - Legal & Regulatory","OSH Legal Compliance Register","ISO 45001 Clause 6.1.3 & 9.1.2","Quarterly","Depot 1 & 2","Complied",""],
-  ["02-002","02 - Legal & Regulatory","DOLE Work Accident/Injury Report (WAIR)","DOLE OSHS Rule 1050 (Due 20th)","Monthly","Depot 1 & 2","URGENT",""],
-  ["02-003","02 - Legal & Regulatory","DOLE Annual Exposure Data Report (AEDR)","DOLE OSHS Rule 1050 (Due Jan 30)","Annual","Depot 1 & 2","Complied",""],
-  ["02-004","02 - Legal & Regulatory","BFP Fire Safety Inspection Certificate (FSIC)","RA 9514 (Fire Code)","Annual","Depot 1 & 2","Complied",""],
-  ["03-001","03 - Risk & Operational Safety","HIRAC Master Register (Yard & Security Ops)","ISO 45001 Clause 6.1.2 / DO 198-18","Quarterly / On Change","Depot 1","Complied",""],
-  ["03-002","03 - Risk & Operational Safety","Job Hazard Analysis (JHA) Register","ISO 45001 Clause 8.1.2","Per Activity","Depot 1 & 2","Complied",""],
-  ["03-003","03 - Risk & Operational Safety","Permit to Work Master Register","ISO 45001 Clause 8.1.2","Daily / Per Task","Depot 1 & 2","Complied",""],
-  ["04-001","04 - Workplace Inspection","Daily General Workplace & Container Yard Inspection","DOLE OSHS Rule 1040","Daily","Depot 1","URGENT",""],
-  ["04-002","04 - Workplace Inspection","HSSE Walkthrough Observation Report (WSOR)","ISO 45001 Clause 9.1","Weekly","Depot 1 & 2","URGENT",""],
-  ["04-003","04 - Workplace Inspection","Container Stacking Inspection","DOLE OSHS Rule 1150","Daily","Depot 2","Complied",""],
-  ["04-004","04 - Workplace Inspection","Reach Stacker & Side Lifter Inspection Checklist","DOLE OSHS Rule 1150","Daily","Depot 1 & 2","Complied",""],
-  ["05-001","05 - Incident & Investigation","Accident, Injury & Near-Miss Register","DOLE OSHS Rule 1050","Per Incident","Depot 1 & 2","Complied",""],
-  ["05-002","05 - Incident & Investigation","Incident Notification Report (24-Hr Rule)","DO 198-18","Per Incident","Depot 1 & 2","Complied",""],
-  ["06-001","06 - Contractor Compliance","Ave. Manpower & Mobile Yard Roster (159 Pax)","DO 198-18 Sec. 21","Daily / Monthly","Depot 1 & 2","Complied",""],
-  ["06-002","06 - Contractor Compliance","Contractor HSSE Scorecard & PPE Compliance","ISO 45001 Clause 8.1.4","Monthly","Depot 1 & 2","Complied",""],
-  ["07-001","07 - Traffic & Transportation","Traffic Management, Speed & Spotter Compliance Log","Depot Traffic SOP","Daily","Depot 1 & 2","Complied",""],
-  ["07-002","07 - Traffic & Transportation","Wheel Chock & Truck Driver PPE Compliance Register","Depot Traffic SOP","Daily","Depot 1 & 2","Complied",""],
-  ["08-001","08 - Occupational Health & Training","HSSE Toolbox Meeting Attendance Log","DO 198-18","Daily","Depot 1 & 2","Complied",""],
-  ["08-002","08 - Occupational Health & Training","Blood Pressure & Fit-to-Work Monitoring","DOLE OSHS Rule 1960","Daily","Depot 1 & 2","URGENT",""],
-  ["08-003","08 - Occupational Health & Training","Heat Stress & Hydration Monitoring Report","DOLE Labor Advisory 08-23","Daily","Depot 1 & 2","Complied",""],
-  ["09-001","09 - Emergency Preparedness","Fire Extinguisher Monthly Monitoring","RA 9514 (Fire Code)","Monthly","Depot 1 & 2","URGENT",""],
-  ["09-002","09 - Emergency Preparedness","Spill Kit & Emergency Response Equipment Inventory","RA 9514 / DENR","Monthly","Depot 1 & 2","Complied",""],
-  ["10-001","10 - Environmental & PCO","DENR Self-Monitoring Report (SMR) & CMR","DAO 2014-02 / RA 6969","Quarterly / Semi-Annual","Depot 1 & 2","Complied",""],
-  ["10-002","10 - Environmental & PCO","Oil-Water Separator & Hazardous Waste Manifest Log","RA 6969 / RA 9275","Weekly / Monthly","Depot 1 & 2","Complied",""],
-  ["11-001","11 - Security Management","CCTV Uptime, Perimeter Patrol & Seal Verification Log","ISO 28000 / Depot Security","Daily","Depot 1 & 2","Complied",""],
-  ["12-001","12 - CAPA & Performance","Master HSSE Action Item & CAPA Monitoring Register","ISO 45001 Clause 10.2","Weekly","Depot 1 & 2","Due Soon",""]
-];
+const RAW_REGISTERS = new Array(
+  new Array("01-001","01 - Management System & ISO","Master OSH Program Monitoring Checklist","RA 11058 / DO 198-18 Sec. 12","Annual / Quarterly","Depot 1 & 2","Complied",""),
+  new Array("01-002","01 - Management System & ISO","HSSE Policy Implementation Monitoring","ISO 45001 Clause 5.2","Annual","Depot 1 & 2","Complied",""),
+  new Array("01-004","01 - Management System & ISO","ISO 45001 Compliance Checklist","ISO 45001:2018","Quarterly","Depot 1 & 2","Complied",""),
+  new Array("01-007","01 - Management System & ISO","HSSE Monthly Accomplishment Report","DO 198-18 / Internal","Monthly","Depot 1 & 2","Due Soon",""),
+  new Array("02-001","02 - Legal & Regulatory","OSH Legal Compliance Register","ISO 45001 Clause 6.1.3 & 9.1.2","Quarterly","Depot 1 & 2","Complied",""),
+  new Array("02-002","02 - Legal & Regulatory","DOLE Work Accident/Injury Report (WAIR)","DOLE OSHS Rule 1050 (Due 20th)","Monthly","Depot 1 & 2","URGENT",""),
+  new Array("02-003","02 - Legal & Regulatory","DOLE Annual Exposure Data Report (AEDR)","DOLE OSHS Rule 1050 (Due Jan 30)","Annual","Depot 1 & 2","Complied",""),
+  new Array("02-004","02 - Legal & Regulatory","BFP Fire Safety Inspection Certificate (FSIC)","RA 9514 (Fire Code)","Annual","Depot 1 & 2","Complied",""),
+  new Array("03-001","03 - Risk & Operational Safety","HIRAC Master Register (Yard & Security Ops)","ISO 45001 Clause 6.1.2 / DO 198-18","Quarterly / On Change","Depot 1","Complied",""),
+  new Array("03-002","03 - Risk & Operational Safety","Job Hazard Analysis (JHA) Register","ISO 45001 Clause 8.1.2","Per Activity","Depot 1 & 2","Complied",""),
+  new Array("03-003","03 - Risk & Operational Safety","Permit to Work Master Register","ISO 45001 Clause 8.1.2","Daily / Per Task","Depot 1 & 2","Complied",""),
+  new Array("04-001","04 - Workplace Inspection","Daily General Workplace & Container Yard Inspection","DOLE OSHS Rule 1040","Daily","Depot 1","URGENT",""),
+  new Array("04-002","04 - Workplace Inspection","HSSE Walkthrough Observation Report (WSOR)","ISO 45001 Clause 9.1","Weekly","Depot 1 & 2","URGENT",""),
+  new Array("04-003","04 - Workplace Inspection","Container Stacking Inspection","DOLE OSHS Rule 1150","Daily","Depot 2","Complied",""),
+  new Array("04-004","04 - Workplace Inspection","Reach Stacker & Side Lifter Inspection Checklist","DOLE OSHS Rule 1150","Daily","Depot 1 & 2","Complied",""),
+  new Array("05-001","05 - Incident & Investigation","Accident, Injury & Near-Miss Register","DOLE OSHS Rule 1050","Per Incident","Depot 1 & 2","Complied",""),
+  new Array("05-002","05 - Incident & Investigation","Incident Notification Report (24-Hr Rule)","DO 198-18","Per Incident","Depot 1 & 2","Complied",""),
+  new Array("06-001","06 - Contractor Compliance","Ave. Manpower & Mobile Yard Roster (159 Pax)","DO 198-18 Sec. 21","Daily / Monthly","Depot 1 & 2","Complied",""),
+  new Array("06-002","06 - Contractor Compliance","Contractor HSSE Scorecard & PPE Compliance","ISO 45001 Clause 8.1.4","Monthly","Depot 1 & 2","Complied",""),
+  new Array("07-001","07 - Traffic & Transportation","Traffic Management, Speed & Spotter Compliance Log","Depot Traffic SOP","Daily","Depot 1 & 2","Complied",""),
+  new Array("07-002","07 - Traffic & Transportation","Wheel Chock & Truck Driver PPE Compliance Register","Depot Traffic SOP","Daily","Depot 1 & 2","Complied",""),
+  new Array("08-001","08 - Occupational Health & Training","HSSE Toolbox Meeting Attendance Log","DO 198-18","Daily","Depot 1 & 2","Complied",""),
+  new Array("08-002","08 - Occupational Health & Training","Blood Pressure & Fit-to-Work Monitoring","DOLE OSHS Rule 1960","Daily","Depot 1 & 2","URGENT",""),
+  new Array("08-003","08 - Occupational Health & Training","Heat Stress & Hydration Monitoring Report","DOLE Labor Advisory 08-23","Daily","Depot 1 & 2","Complied",""),
+  new Array("09-001","09 - Emergency Preparedness","Fire Extinguisher Monthly Monitoring","RA 9514 (Fire Code)","Monthly","Depot 1 & 2","URGENT",""),
+  new Array("09-002","09 - Emergency Preparedness","Spill Kit & Emergency Response Equipment Inventory","RA 9514 / DENR","Monthly","Depot 1 & 2","Complied",""),
+  new Array("10-001","10 - Environmental & PCO","DENR Self-Monitoring Report (SMR) & CMR","DAO 2014-02 / RA 6969","Quarterly / Semi-Annual","Depot 1 & 2","Complied",""),
+  new Array("10-002","10 - Environmental & PCO","Oil-Water Separator & Hazardous Waste Manifest Log","RA 6969 / RA 9275","Weekly / Monthly","Depot 1 & 2","Complied",""),
+  new Array("11-001","11 - Security Management","CCTV Uptime, Perimeter Patrol & Seal Verification Log","ISO 28000 / Depot Security","Daily","Depot 1 & 2","Complied",""),
+  new Array("12-001","12 - CAPA & Performance","Master HSSE Action Item & CAPA Monitoring Register","ISO 45001 Clause 10.2","Weekly","Depot 1 & 2","Due Soon","")
+);
 
 let registers = RAW_REGISTERS.map(function(r) {
   return {
-    code: "MFI-DVO-HSSE-" + r,
-    modCode: r.slice(0,2),
-    module: r,
-    name: r,
-    ref: r,
-    freq: r,
-    location: r,
-    status: r,
-    fileUrl: r
+    code: "MFI-DVO-HSSE-" + r.item(0),
+    modCode: r.item(0).slice(0,2),
+    module: r.item(1),
+    name: r.item(2),
+    ref: r.item(3),
+    freq: r.item(4),
+    location: r.item(5),
+    status: r.item(6),
+    fileUrl: r.item(7)
   };
 });
 
@@ -430,9 +430,10 @@ async function loadUserSession(user) {
   document.getElementById("statUser").textContent = (profile && profile.full_name) ? profile.full_name : user.email;
   document.getElementById("adminUsersBtn").style.display = currentRole === "safety_officer" ? "inline-block" : "none";
 
+  const allowedMods = ROLE_SCOPES[currentRole] || new Array();
   document.querySelectorAll("#quickEntryBar button").forEach(function(btn) {
     const mod = btn.getAttribute("data-mod");
-    btn.style.display = (ROLE_SCOPES[currentRole] ||).includes(mod) ? "inline-block" : "none";
+    btn.style.display = allowedMods.includes(mod) ? "inline-block" : "none";
   });
 
   await syncLogsFromSupabase();
@@ -447,9 +448,9 @@ async function syncLogsFromSupabase() {
     res.data.forEach(function(log) {
       const idx = registers.findIndex(function(r) { return r.code === log.control_no; });
       if (idx > -1) {
-        registers[idx].status = log.status;
-        registers[idx].location = log.depot_location;
-        if (log.file_url) registers[idx].fileUrl = log.file_url;
+        registers.item(idx).status = log.status;
+        registers.item(idx).location = log.depot_location;
+        if (log.file_url) registers.item(idx).fileUrl = log.file_url;
       }
     });
   }
@@ -477,6 +478,7 @@ function filterUrgentOnly() {
 function renderTable() {
   const q = document.getElementById("searchInput").value.toLowerCase();
   const locFilter = document.getElementById("globalDepotFilter").value;
+  const allowedMods = ROLE_SCOPES[currentRole] || new Array();
 
   const filtered = registers.filter(function(r) {
     if (activeModule !== "ALL" && r.module !== activeModule) return false;
@@ -491,7 +493,7 @@ function renderTable() {
 
   document.getElementById("registerTableBody").innerHTML = filtered.map(function(r) {
     const badgeClass = r.status === "URGENT" ? "badge-urgent" : r.status === "Due Soon" ? "badge-due" : "badge-ok";
-    const canUploadToModule = (ROLE_SCOPES[currentRole] ||).includes(r.modCode);
+    const canUploadToModule = allowedMods.includes(r.modCode);
     const isSafetyOfficer = currentRole === "safety_officer";
 
     let actionBtn = '<span style="color:#64748b;font-size:11px">View Only</span>';
@@ -559,8 +561,8 @@ async function saveModalRecord() {
   let finalFileUrl = document.getElementById("f_driveUrl").value.trim();
 
   const fileInput = document.getElementById("f_file");
-  if (fileInput && fileInput.files.length > 0) {
-    const file = fileInput.files;
+  if (fileInput && fileInput.files && fileInput.files.length > 0) {
+    const file = fileInput.files.item(0);
     const filePath = currentModalContext.modCode + "/" + currentModalContext.code + "_" + Date.now() + "_" + file.name;
     const upRes = await sb.storage.from("hsse-evidence").upload(filePath, file);
     if (upRes.error) {
@@ -572,7 +574,7 @@ async function saveModalRecord() {
     finalFileUrl = pubRes.data.publicUrl;
   }
 
-  const dbRes = await sb.from("hsse_logs").insert([{
+  const rowObj = {
     control_no: currentModalContext.code,
     module_code: currentModalContext.modCode,
     report_name: currentModalContext.name,
@@ -581,7 +583,9 @@ async function saveModalRecord() {
     file_url: finalFileUrl,
     remarks: remarks,
     submitted_by: currentUser.id
-  }]);
+  };
+
+  const dbRes = await sb.from("hsse_logs").insert(new Array(rowObj));
 
   btn.textContent = "Upload & Save Record";
   btn.disabled = false;
