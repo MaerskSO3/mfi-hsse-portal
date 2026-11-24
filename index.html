@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Maersk Filipinas Inc. | Live HSSE Reportorial Portal</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { background: #020617; color: #f1f5f9; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+    
+    #authScreen { position: fixed; inset: 0; background: radial-gradient(circle at top, #00243d, #020617 70%); display: flex; align-items: center; justify-content: center; z-index: 100; padding: 16px; }
+    .auth-card { background: #0f172a; border: 1px solid #1e293b; border-radius: 12px; width: 100%; max-width: 420px; padding: 28px; box-shadow: 0 25px 50px rgba(0,0,0,0.7); }
+    .auth-tabs { display: flex; gap: 8px; margin: 18px 0; background: #020617; padding: 4px; border-radius: 8px; }
+    .auth-tab { flex: 1; padding: 8px; border: none; background: transparent; color: #94a3b8; font-size: 12px; font-weight: 700; border-radius: 6px; cursor: pointer; }
+    .auth-tab.active { background: #0284c7; color: #fff; }
+    .auth-msg { font-size: 12px; padding: 8px 10px; border-radius: 6px; margin-bottom: 12px; display: none; }
+    .auth-msg.err { display: block; background: rgba(239,68,68,0.2); border: 1px solid #ef4444; color: #fca5a5; }
+    .auth-msg.ok { display: block; background: rgba(16,185,129,0.2); border: 1px solid #10b981; color: #6ee7b7; }
+
+    header { background: #00243d; border-bottom: 1px solid #0369a1; padding: 10px 16px; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; gap: 12px; }
+    .brand { display: flex; align-items: center; gap: 12px; }
+    .logo-box { width: 38px; height: 38px; background: #38bdf8; color: #020617; font-weight: 900; font-size: 20px; border-radius: 6px; display: flex; align-items: center; justify-content: center; }
+    .title-row { display: flex; align-items: center; gap: 8px; }
+    .title-row h1 { font-size: 15px; font-weight: 700; color: #fff; }
+    .series-badge { font-family: monospace; font-size: 11px; background: #0c4a6e; color: #bae6fd; padding: 2px 8px; border-radius: 4px; border: 1px solid #0284c7; }
+    .subtitle { font-size: 11px; color: #bae6fd; margin-top: 2px; }
+
+    .weather-box { background: #0f172a; border: 1px solid #334155; border-radius: 8px; padding: 6px 12px; display: flex; align-items: center; gap: 14px; font-size: 12px; }
+    .weather-label { font-size: 10px; text-transform: uppercase; color: #38bdf8; font-weight: 700; }
+    .weather-stats { display: flex; gap: 10px; margin-top: 2px; color: #cbd5e1; }
+    .weather-stats strong { color: #fff; font-size: 13px; }
+    .weather-pill { padding: 4px 8px; border-radius: 5px; font-size: 11px; font-weight: 700; background: rgba(16,185,129,0.18); color: #6ee7b7; border: 1px solid rgba(16,185,129,0.4); }
+
+    .header-actions { display: flex; align-items: center; gap: 8px; }
+    select, input, textarea { background: #0f172a; border: 1px solid #334155; color: #f8fafc; border-radius: 6px; padding: 7px 10px; font-size: 12px; outline: none; width: 100%; }
+    select:focus, input:focus, textarea:focus { border-color: #38bdf8; }
+    .btn { border: none; border-radius: 6px; padding: 7px 12px; font-size: 12px; font-weight: 600; cursor: pointer; transition: 0.15s; white-space: nowrap; }
+    .btn-dark { background: #1e293b; color: #e2e8f0; border: 1px solid #475569; }
+    .btn-dark:hover { background: #334155; }
+    .btn-sky { background: #0284c7; color: #fff; }
+    .btn-sky:hover { background: #0369a1; }
+    .btn-green { background: #059669; color: #fff; }
+    .btn-red { background: #dc2626; color: #fff; }
+    .role-pill { font-size: 11px; font-weight: 700; padding: 4px 9px; border-radius: 20px; background: #1e293b; border: 1px solid #38bdf8; color: #38bdf8; text-transform: uppercase; }
+
+    @keyframes pulseUrgent {
+      0%, 100% { background: rgba(220,38,38,0.18); border-color: #ef4444; }
+      50% { background: rgba(220,38,38,0.42); border-color: #fecaca; }
+    }
+    .urgent-bar { animation: pulseUrgent 1.8s infinite; border-bottom: 1px solid #ef4444; padding: 6px 16px; display: flex; align-items: center; justify-content: space-between; font-size: 12px; flex-shrink: 0; }
+    .urgent-tag { background: #dc2626; color: #fff; font-size: 10px; font-weight: 800; padding: 2px 6px; border-radius: 4px; text-transform: uppercase; margin-right: 8px; }
+
+    .workspace { display: flex; flex: 1; overflow: hidden; }
+    aside { width: 260px; background: #0f172a; border-right: 1px solid #1e293b; display: flex; flex-direction: column; justify-content: space-between; overflow-y: auto; flex-shrink: 0; }
+    .nav-list { padding: 10px; display: flex; flex-direction: column; gap: 4px; }
+    .nav-btn { width: 100%; text-align: left; background: transparent; border: none; color: #cbd5e1; padding: 8px 10px; border-radius: 6px; font-size: 12px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; }
+    .nav-btn:hover { background: #1e293b; }
+    .nav-btn.active { background: #0284c7; color: #fff; font-weight: 600; }
+    .nav-count { font-size: 10px; background: #1e293b; padding: 2px 6px; border-radius: 10px; color: #94a3b8; }
+    .nav-btn.active .nav-count { background: #075985; color: #fff; }
+    .sidebar-stats { padding: 12px; border-top: 1px solid #1e293b; font-size: 11px; color: #94a3b8; display: flex; flex-direction: column; gap: 4px; }
+    .stat-row { display: flex; justify-content: space-between; }
+
+    main { flex: 1; display: flex; flex-direction: column; overflow: hidden; background: #020617; }
+    .toolbar { padding: 10px 14px; border-bottom: 1px solid #1e293b; background: #090d16; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+    .table-wrap { flex: 1; overflow: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; text-align: left; }
+    thead { background: #0f172a; position: sticky; top: 0; z-index: 5; border-bottom: 1px solid #1e293b; }
+    th { padding: 10px 12px; font-size: 10px; text-transform: uppercase; color: #94a3b8; }
+    td { padding: 9px 12px; border-bottom: 1px solid #1e293b; }
+    tr:hover { background: #0f172a; }
+    .code-cell { font-family: monospace; font-size: 11px; color: #38bdf8; white-space: nowrap; }
+    .badge { padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 700; display: inline-block; }
+    .badge-ok { background: rgba(16,185,129,0.15); color: #6ee7b7; border: 1px solid rgba(16,185,129,0.4); }
+    .badge-due { background: rgba(245,158,11,0.15); color: #fcd34d; border: 1px solid rgba(245,158,11,0.4); }
+    .badge-urgent { background: rgba(239,68,68,0.25); color: #fca5a5; border: 1px solid #ef4444; }
+    a.scan-link { color: #38bdf8; text-decoration: none; font-weight: 600; }
+
+    .modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.8); display: none; align-items: center; justify-content: center; z-index: 50; padding: 16px; }
+    .modal-backdrop.open { display: flex; }
+    .modal-box { background: #0f172a; border: 1px solid #334155; border-radius: 10px; width: 100%; max-width: 620px; overflow: hidden; }
+    .modal-head { background: #00243d; padding: 12px 16px; border-bottom: 1px solid #0369a1; display: flex; justify-content: space-between; align-items: center; }
+    .modal-body { padding: 16px; display: flex; flex-direction: column; gap: 12px; max-height: 72vh; overflow-y: auto; font-size: 12px; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .field { margin-bottom: 10px; }
+    .field label { display: block; color: #94a3b8; margin-bottom: 4px; font-size: 11px; }
+    .modal-foot { padding: 12px 16px; background: #020617; border-top: 1px solid #1e293b; display: flex; justify-content: space-between; }
+
+    @media print {
+      body * { visibility: hidden; }
+      #printArea, #printArea * { visibility: visible; }
+      #printArea { display: block !important; position: absolute; left: 0; top: 0; width: 100%; background: #fff; color: #000; padding: 20px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- LOGIN / REGISTER GATE -->
+  <div id="authScreen">
+    <div class="auth-card">
+      <div class="brand">
+        <div class="logo-box">★</div>
+        <div>
+          <h2 style="font-size:16px;color:#fff">MAERSK FILIPINAS INC.</h2>
+          <div style="font-size:11px;color:#38bdf8">HSSE Live Portal • Depot 1 &amp; 2 Tibungco</div>
+        </div>
+      </div>
+
+      <div class="auth-tabs">
+        <button type="button" id="tabLogin" class="auth-tab active" onclick="switchAuthTab('login')">Sign In</button>
+        <button type="button" id="tabReg" class="auth-tab" onclick="switchAuthTab('register')">Register Account</button>
+      </div>
+
+      <div id="authMsg" class="auth-msg"></div>
+
+      <div id="loginForm">
+        <div class="field"><label>Email Address</label><input id="l_email" type="email" placeholder="maerskhsse.s03@gmail.com" /></div>
+        <div class="field"><label>Password</label><input id="l_pass" type="password" placeholder="••••••••" /></div>
+        <button type="button" class="btn btn-sky" style="width:100%;padding:10px;margin-top:6px" onclick="handleLogin()">Sign In to Portal</button>
+      </div>
+
+      <div id="registerForm" style="display:none">
+        <div class="field"><label>Full Name</label><input id="r_name" type="text" placeholder="Reynaldo Dela Pena" /></div>
+        <div class="field"><label>Email Address</label><input id="r_email" type="email" placeholder="maerskhsse.s03@gmail.com" /></div>
+        <div class="field"><label>Password (min. 6 characters)</label><input id="r_pass" type="password" placeholder="••••••••" /></div>
+        <div class="field">
+          <label>Requested Scope Classification</label>
+          <select id="r_class">
+            <option value="Management">Management (Modules 01, 02, 12)</option>
+            <option value="Operations">Operations (Modules 03, 04, 06, 07)</option>
+            <option value="Safety Officer">Safety Officer (Full Admin Access)</option>
+          </select>
+        </div>
+        <p style="font-size:11px;color:#94a3b8;margin-bottom:10px">Note: New accounts default to <strong>Viewer (Read-Only)</strong> until approved by the Safety Officer.</p>
+        <button type="button" class="btn btn-green" style="width:100%;padding:10px" onclick="handleRegister()">Create Account</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MAIN PORTAL APP -->
+  <header>
+    <div class="brand">
+      <div class="logo-box">★</div>
+      <div>
+        <div class="title-row">
+          <h1>MAERSK FILIPINAS INC. — LIVE HSSE PORTAL</h1>
+          <span class="series-badge">Series: MFI-DVO-HSSE</span>
+        </div>
+        <div class="subtitle">Container Depot 1 &amp; Depot 2 • Tibungco, Bunawan, Davao City</div>
+      </div>
+    </div>
+
+    <div class="weather-box">
+      <div>
+        <div class="weather-label">Live Yard Weather • Tibungco</div>
+        <div class="weather-stats">
+          <strong id="wTemp">--°C</strong>
+          <span id="wWind">Wind: -- km/h</span>
+          <span id="wRain">Rain: -- mm</span>
+        </div>
+      </div>
+      <div id="wAlert" class="weather-pill">Syncing Weather...</div>
+    </div>
+
+    <div class="header-actions">
+      <span id="userRoleBadge" class="role-pill">VIEWER</span>
+      <button type="button" id="adminUsersBtn" class="btn btn-sky" style="display:none" onclick="openUsersModal()">👥 Manage Roles</button>
+      <select id="globalDepotFilter" style="width:auto" onchange="renderTable()">
+        <option value="ALL">All Locations (Depot 1 &amp; 2)</option>
+        <option value="Depot 1">Depot 1 Only</option>
+        <option value="Depot 2">Depot 2 Only</option>
+      </select>
+      <button type="button" class="btn btn-dark" onclick="handleLogout()">Logout</button>
+    </div>
+  </header>
+
+  <div class="urgent-bar">
+    <div>
+      <span class="urgent-tag">Immediate Action</span>
+      <span>Critical Registers Require Shift / Statutory Update (Daily Yard Inspection, BP Monitoring, WSOR Action Items, DOLE WAIR, Fire Ex Monthly)</span>
+    </div>
+    <button type="button" class="btn btn-red" id="urgentToggleBtn" onclick="filterUrgentOnly()">Show Urgent Only</button>
+  </div>
+
+  <div class="workspace">
+    <aside>
+      <div class="nav-list" id="moduleNav"></div>
+      <div class="sidebar-stats">
+        <div class="stat-row"><span>Logged In:</span><strong style="color:#fff" id="statUser">-</strong></div>
+        <div class="stat-row"><span>Total Registers:</span><strong style="color:#fff" id="statTotal">0</strong></div>
+        <div class="stat-row"><span>Complied / Active:</span><strong style="color:#34d399" id="statOk">0</strong></div>
+        <div class="stat-row"><span>Immediate Update:</span><strong style="color:#f87171" id="statUrgent">0</strong></div>
+      </div>
+    </aside>
+
+    <main>
+      <div class="toolbar">
+        <input id="searchInput" style="width:300px" oninput="renderTable()" type="text" placeholder="Search Control No., Report Name, ISO/DOLE Ref..." />
+        <div class="quick-btns" id="quickEntryBar" style="display:flex;gap:6px;flex-wrap:wrap">
+          <button type="button" class="btn btn-sky" data-mod="08" onclick="openEntryModal('BP')">+ BP Monitoring</button>
+          <button type="button" class="btn btn-sky" data-mod="04" onclick="openEntryModal('WSOR')">+ WSOR Walkthrough</button>
+          <button type="button" class="btn btn-sky" data-mod="03" onclick="openEntryModal('JHA')">+ JHA Register</button>
+          <button type="button" class="btn btn-sky" data-mod="08" onclick="openEntryModal('TBT')">+ Toolbox Talk</button>
+          <button type="button" class="btn btn-sky" data-mod="09" onclick="openEntryModal('FIRE')">+ Fire Ex Check</button>
+          <button type="button" class="btn btn-green" data-mod="06" onclick="openEntryModal('MANPOWER')">+ Manpower (159)</button>
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Control No.</th>
+              <th>Module</th>
+              <th>Report / Checklist Name</th>
+              <th>ISO / DOLE Ref</th>
+              <th>Frequency</th>
+              <th>Location</th>
+              <th>Status</th>
+              <th>Attached File / Scan</th>
+              <th style="text-align:right">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="registerTableBody"></tbody>
+        </table>
+      </div>
+    </main>
+  </div>
+
+  <!-- UPLOAD / EDIT ENTRY MODAL -->
+  <div id="entryModal" class="modal-backdrop">
+    <div class="modal-box">
+      <div class="modal-head">
+        <div>
+          <h3 id="modalTitle" style="font-size:14px;color:#fff">Register Entry</h3>
+          <div style="font-size:11px;color:#bae6fd">Maersk Filipinas Inc. • Tibungco, Bunawan, Davao City</div>
+        </div>
+        <button type="button" class="btn btn-dark" onclick="closeModal('entryModal')">✕</button>
+      </div>
+      <div id="modalBody" class="modal-body"></div>
+      <div class="modal-foot">
+        <button type="button" class="btn btn-dark" onclick="printCurrentModal()">🖨️ Print / Save PDF</button>
+        <div style="display:flex;gap:8px">
+          <button type="button" class="btn btn-dark" onclick="closeModal('entryModal')">Cancel</button>
+          <button type="button" id="saveEntryBtn" class="btn btn-sky" onclick="saveModalRecord()">Upload &amp; Save Record</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SAFETY OFFICER ADMIN: MANAGE USERS & ROLES MODAL -->
+  <div id="usersModal" class="modal-backdrop">
+    <div class="modal-box" style="max-width:680px">
+      <div class="modal-head">
+        <h3 style="font-size:14px;color:#fff">👥 Safety Officer Admin — User Classifications &amp; Permissions</h3>
+        <button type="button" class="btn btn-dark" onclick="closeModal('usersModal')">✕</button>
+      </div>
+      <div class="modal-body">
+        <p style="color:#94a3b8;font-size:11px">Assign user permissions: <strong>Safety Officer</strong> (Full Edit/Admin), <strong>Management</strong> (Upload Modules 01, 02, 12), <strong>Operations</strong> (Upload Modules 03, 04, 06, 07), or <strong>Viewer</strong> (Read-Only).</p>
+        <table>
+          <thead><tr><th>Name</th><th>Email</th><th>Requested</th><th>Assigned Role</th></tr></thead>
+          <tbody id="usersTableBody"></tbody>
+        </table>
+      </div>
+      <div class="modal-foot">
+        <span></span>
+        <button type="button" class="btn btn-dark" onclick="closeModal('usersModal')">Done</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="printArea" style="display:none"></div>
+
+<script>
+const SUPABASE_URL = "https://" + "rlhlsusonuxrbwyhibrj" + ".supabase.co";
+const SUPABASE_KEY = "sb_publishable_09jfQP646zzweuP1YLyeGA_DJEXD-Po";
+const WEATHER_URL = "https://api." + "open-meteo.com" + "/v1/forecast?latitude=7.22&longitude=125.65&current=temperature_2m,precipitation,wind_speed_10m";
+
+let sb = null;
+let currentUser = null;
+let currentRole = "viewer";
+let activeModule = "ALL";
+let urgentOnly = false;
+let currentModalContext = null;
+
+(function loadSupabaseSDK() {
+  const s = document.createElement("script");
+  s.src = "https://" + "cdn.jsdelivr.net" + "/npm/@supabase/supabase-js@2";
+  s.onload = function() {
+    sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    sb.auth.getSession().then(function(res) {
+      if (res.data && res.data.session && res.data.session.user) {
+        loadUserSession(res.data.session.user);
+      }
+    });
+  };
+  s.onerror = function() {
+    showAuthMsg("Failed to load Supabase SDK. Check internet connection.", true);
+  };
+  document.head.appendChild(s);
+})();
+
+const ROLE_SCOPES = {
+  safety_officer: ["01","02","03","04","05","06","07","08","09","10","11","12"],
+  management: ["01","02","12"],
+  operations: ["03","04","06","07"],
+  viewer:
+};
+
+const MODULES = [
+  "ALL",
+  "01 - Management System & ISO",
+  "02 - Legal & Regulatory",
+  "03 - Risk & Operational Safety",
+  "04 - Workplace Inspection",
+  "05 - Incident & Investigation",
+  "06 - Contractor Compliance",
+  "07 - Traffic & Transportation",
+  "08 - Occupational Health & Training",
+  "09 - Emergency Preparedness",
+  "10 - Environmental & PCO",
+  "11 - Security Management",
+  "12 - CAPA & Performance"
+];
+
+const RAW_REGISTERS = [
+  ["01-001","01 - Management System & ISO","Master OSH Program Monitoring Checklist","RA 11058 / DO 198-18 Sec. 12","Annual / Quarterly","Depot 1 & 2","Complied",""],
+  ["01-002","01 - Management System & ISO","HSSE Policy Implementation Monitoring","ISO 45001 Clause 5.2","Annual","Depot 1 & 2","Complied",""],
+  ["01-004","01 - Management System & ISO","ISO 45001 Compliance Checklist","ISO 45001:2018","Quarterly","Depot 1 & 2","Complied",""],
+  ["01-007","01 - Management System & ISO","HSSE Monthly Accomplishment Report","DO 198-18 / Internal","Monthly","Depot 1 & 2","Due Soon",""],
+  ["02-001","02 - Legal & Regulatory","OSH Legal Compliance Register","ISO 45001 Clause 6.1.3 & 9.1.2","Quarterly","Depot 1 & 2","Complied",""],
+  ["02-002","02 - Legal & Regulatory","DOLE Work Accident/Injury Report (WAIR)","DOLE OSHS Rule 1050 (Due 20th)","Monthly","Depot 1 & 2","URGENT",""],
+  ["02-003","02 - Legal & Regulatory","DOLE Annual Exposure Data Report (AEDR)","DOLE OSHS Rule 1050 (Due Jan 30)","Annual","Depot 1 & 2","Complied",""],
+  ["02-004","02 - Legal & Regulatory","BFP Fire Safety Inspection Certificate (FSIC)","RA 9514 (Fire Code)","Annual","Depot 1 & 2","Complied",""],
+  ["03-001","03 - Risk & Operational Safety","HIRAC Master Register (Yard & Security Ops)","ISO 45001 Clause 6.1.2 / DO 198-18","Quarterly / On Change","Depot 1","Complied",""],
+  ["03-002","03 - Risk & Operational Safety","Job Hazard Analysis (JHA) Register","ISO 45001 Clause 8.1.2","Per Activity","Depot 1 & 2","Complied",""],
+  ["03-003","03 - Risk & Operational Safety","Permit to Work Master Register","ISO 45001 Clause 8.1.2","Daily / Per Task","Depot 1 & 2","Complied",""],
+  ["04-001","04 - Workplace Inspection","Daily General Workplace & Container Yard Inspection","DOLE OSHS Rule 1040","Daily","Depot 1","URGENT",""],
+  ["04-002","04 - Workplace Inspection","HSSE Walkthrough Observation Report (WSOR)","ISO 45001 Clause 9.1","Weekly","Depot 1 & 2","URGENT",""],
+  ["04-003","04 - Workplace Inspection","Container Stacking Inspection","DOLE OSHS Rule 1150","Daily","Depot 2","Complied",""],
+  ["04-004","04 - Workplace Inspection","Reach Stacker & Side Lifter Inspection Checklist","DOLE OSHS Rule 1150","Daily","Depot 1 & 2","Complied",""],
+  ["05-001","05 - Incident & Investigation","Accident, Injury & Near-Miss Register","DOLE OSHS Rule 1050","Per Incident","Depot 1 & 2","Complied",""],
+  ["05-002","05 - Incident & Investigation","Incident Notification Report (24-Hr Rule)","DO 198-18","Per Incident","Depot 1 & 2","Complied",""],
+  ["06-001","06 - Contractor Compliance","Ave. Manpower & Mobile Yard Roster (159 Pax)","DO 198-18 Sec. 21","Daily / Monthly","Depot 1 & 2","Complied",""],
+  ["06-002","06 - Contractor Compliance","Contractor HSSE Scorecard & PPE Compliance","ISO 45001 Clause 8.1.4","Monthly","Depot 1 & 2","Complied",""],
+  ["07-001","07 - Traffic & Transportation","Traffic Management, Speed & Spotter Compliance Log","Depot Traffic SOP","Daily","Depot 1 & 2","Complied",""],
+  ["07-002","07 - Traffic & Transportation","Wheel Chock & Truck Driver PPE Compliance Register","Depot Traffic SOP","Daily","Depot 1 & 2","Complied",""],
+  ["08-001","08 - Occupational Health & Training","HSSE Toolbox Meeting Attendance Log","DO 198-18","Daily","Depot 1 & 2","Complied",""],
+  ["08-002","08 - Occupational Health & Training","Blood Pressure & Fit-to-Work Monitoring","DOLE OSHS Rule 1960","Daily","Depot 1 & 2","URGENT",""],
+  ["08-003","08 - Occupational Health & Training","Heat Stress & Hydration Monitoring Report","DOLE Labor Advisory 08-23","Daily","Depot 1 & 2","Complied",""],
+  ["09-001","09 - Emergency Preparedness","Fire Extinguisher Monthly Monitoring","RA 9514 (Fire Code)","Monthly","Depot 1 & 2","URGENT",""],
+  ["09-002","09 - Emergency Preparedness","Spill Kit & Emergency Response Equipment Inventory","RA 9514 / DENR","Monthly","Depot 1 & 2","Complied",""],
+  ["10-001","10 - Environmental & PCO","DENR Self-Monitoring Report (SMR) & CMR","DAO 2014-02 / RA 6969","Quarterly / Semi-Annual","Depot 1 & 2","Complied",""],
+  ["10-002","10 - Environmental & PCO","Oil-Water Separator & Hazardous Waste Manifest Log","RA 6969 / RA 9275","Weekly / Monthly","Depot 1 & 2","Complied",""],
+  ["11-001","11 - Security Management","CCTV Uptime, Perimeter Patrol & Seal Verification Log","ISO 28000 / Depot Security","Daily","Depot 1 & 2","Complied",""],
+  ["12-001","12 - CAPA & Performance","Master HSSE Action Item & CAPA Monitoring Register","ISO 45001 Clause 10.2","Weekly","Depot 1 & 2","Due Soon",""]
+];
+
+let registers = RAW_REGISTERS.map(function(r) {
+  return {
+    code: "MFI-DVO-HSSE-" + r,
+    modCode: r.slice(0,2),
+    module: r,
+    name: r,
+    ref: r,
+    freq: r,
+    location: r,
+    status: r,
+    fileUrl: r
+  };
+});
+
+function switchAuthTab(tab) {
+  document.getElementById("tabLogin").classList.toggle("active", tab === "login");
+  document.getElementById("tabReg").classList.toggle("active", tab === "register");
+  document.getElementById("loginForm").style.display = tab === "login" ? "block" : "none";
+  document.getElementById("registerForm").style.display = tab === "register" ? "block" : "none";
+  document.getElementById("authMsg").className = "auth-msg";
+}
+
+function showAuthMsg(text, isErr) {
+  const el = document.getElementById("authMsg");
+  el.textContent = text;
+  el.className = "auth-msg " + (isErr ? "err" : "ok");
+}
+
+async function handleRegister() {
+  if (!sb) return showAuthMsg("Still loading database library, please click again in 2 seconds...", true);
+  const full_name = document.getElementById("r_name").value.trim();
+  const email = document.getElementById("r_email").value.trim();
+  const password = document.getElementById("r_pass").value;
+  const requested_classification = document.getElementById("r_class").value;
+  if (!full_name || !email || password.length < 6) {
+    return showAuthMsg("Please enter your Full Name, Email, and a Password (at least 6 characters).", true);
+  }
+
+  const res = await sb.auth.signUp({
+    email: email,
+    password: password,
+    options: { data: { full_name: full_name, requested_classification: requested_classification } }
+  });
+  if (res.error) return showAuthMsg(res.error.message, true);
+  showAuthMsg("Account created! Sign in now (starts as Viewer until Safety Officer approves your role).", false);
+  switchAuthTab("login");
+  document.getElementById("l_email").value = email;
+}
+
+async function handleLogin() {
+  if (!sb) return showAuthMsg("Still loading database library, please click again in 2 seconds...", true);
+  const email = document.getElementById("l_email").value.trim();
+  const password = document.getElementById("l_pass").value;
+  const res = await sb.auth.signInWithPassword({ email: email, password: password });
+  if (res.error) return showAuthMsg(res.error.message, true);
+  await loadUserSession(res.data.user);
+}
+
+async function handleLogout() {
+  if (sb) await sb.auth.signOut();
+  document.getElementById("authScreen").style.display = "flex";
+}
+
+async function loadUserSession(user) {
+  currentUser = user;
+  const profRes = await sb.from("profiles").select("*").eq("id", user.id).single();
+  const profile = profRes.data;
+  currentRole = (profile && profile.role) ? profile.role : "viewer";
+
+  document.getElementById("authScreen").style.display = "none";
+  document.getElementById("userRoleBadge").textContent = currentRole.replace("_", " ");
+  document.getElementById("statUser").textContent = (profile && profile.full_name) ? profile.full_name : user.email;
+  document.getElementById("adminUsersBtn").style.display = currentRole === "safety_officer" ? "inline-block" : "none";
+
+  document.querySelectorAll("#quickEntryBar button").forEach(function(btn) {
+    const mod = btn.getAttribute("data-mod");
+    btn.style.display = (ROLE_SCOPES[currentRole] ||).includes(mod) ? "inline-block" : "none";
+  });
+
+  await syncLogsFromSupabase();
+  renderSidebar();
+  renderTable();
+  fetchTibungcoWeather();
+}
+
+async function syncLogsFromSupabase() {
+  const res = await sb.from("hsse_logs").select("*").order("created_at", { ascending: false });
+  if (res.data && res.data.length) {
+    res.data.forEach(function(log) {
+      const idx = registers.findIndex(function(r) { return r.code === log.control_no; });
+      if (idx > -1) {
+        registers[idx].status = log.status;
+        registers[idx].location = log.depot_location;
+        if (log.file_url) registers[idx].fileUrl = log.file_url;
+      }
+    });
+  }
+}
+
+function renderSidebar() {
+  const nav = document.getElementById("moduleNav");
+  nav.innerHTML = MODULES.map(function(m) {
+    const count = m === "ALL" ? registers.length : registers.filter(function(r) { return r.module === m; }).length;
+    const isActive = activeModule === m;
+    return '<button type="button" class="nav-btn ' + (isActive ? 'active' : '') + '" onclick="selectModule(\'' + m + '\')">' +
+      '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding-right:6px">' + (m === "ALL" ? "All 12 HSSE Modules" : m) + '</span>' +
+      '<span class="nav-count">' + count + '</span></button>';
+  }).join("");
+}
+
+function selectModule(m) { activeModule = m; renderSidebar(); renderTable(); }
+
+function filterUrgentOnly() {
+  urgentOnly = !urgentOnly;
+  document.getElementById("urgentToggleBtn").textContent = urgentOnly ? "Showing Urgent (Reset)" : "Show Urgent Only";
+  renderTable();
+}
+
+function renderTable() {
+  const q = document.getElementById("searchInput").value.toLowerCase();
+  const locFilter = document.getElementById("globalDepotFilter").value;
+
+  const filtered = registers.filter(function(r) {
+    if (activeModule !== "ALL" && r.module !== activeModule) return false;
+    if (urgentOnly && r.status !== "URGENT") return false;
+    if (locFilter !== "ALL" && !r.location.includes(locFilter) && r.location !== "Depot 1 & 2") return false;
+    return (r.code + " " + r.name + " " + r.ref + " " + r.module).toLowerCase().includes(q);
+  });
+
+  document.getElementById("statTotal").textContent = registers.length;
+  document.getElementById("statOk").textContent = registers.filter(function(r) { return r.status === "Complied"; }).length;
+  document.getElementById("statUrgent").textContent = registers.filter(function(r) { return r.status === "URGENT"; }).length;
+
+  document.getElementById("registerTableBody").innerHTML = filtered.map(function(r) {
+    const badgeClass = r.status === "URGENT" ? "badge-urgent" : r.status === "Due Soon" ? "badge-due" : "badge-ok";
+    const canUploadToModule = (ROLE_SCOPES[currentRole] ||).includes(r.modCode);
+    const isSafetyOfficer = currentRole === "safety_officer";
+
+    let actionBtn = '<span style="color:#64748b;font-size:11px">View Only</span>';
+    if (isSafetyOfficer) {
+      actionBtn = '<button type="button" class="btn btn-sky" style="padding:4px 8px;font-size:11px" onclick="openUpdateModal(\'' + r.code + '\', true)">Edit / Upload</button>';
+    } else if (canUploadToModule) {
+      actionBtn = '<button type="button" class="btn btn-green" style="padding:4px 8px;font-size:11px" onclick="openUpdateModal(\'' + r.code + '\', false)">+ Upload File</button>';
+    }
+
+    const fileCell = r.fileUrl
+      ? '<a href="' + r.fileUrl + '" target="_blank" class="scan-link">📎 Open File / Scan</a>'
+      : '<span style="color:#64748b;font-style:italic">None attached</span>';
+
+    return '<tr>' +
+      '<td class="code-cell">' + r.code + '</td>' +
+      '<td style="color:#94a3b8;font-size:11px">' + r.module + '</td>' +
+      '<td style="font-weight:600;color:#fff">' + r.name + '</td>' +
+      '<td style="color:#94a3b8;font-size:11px">' + r.ref + '</td>' +
+      '<td>' + r.freq + '</td>' +
+      '<td style="white-space:nowrap">' + r.location + '</td>' +
+      '<td><span class="badge ' + badgeClass + '">' + r.status + '</span></td>' +
+      '<td>' + fileCell + '</td>' +
+      '<td style="text-align:right;white-space:nowrap">' + actionBtn +
+      ' <button type="button" class="btn btn-dark" style="padding:4px 8px;font-size:11px" onclick="printRegisterRow(\'' + r.code + '\')">PDF</button></td></tr>';
+  }).join("");
+}
+
+function openUpdateModal(code, canEditExisting) {
+  const reg = registers.find(function(r) { return r.code === code; });
+  currentModalContext = { type: "REGISTER_UPLOAD", code: code, modCode: reg.modCode, name: reg.name, canEditExisting: canEditExisting };
+  document.getElementById("modalTitle").textContent = reg.code + " — " + reg.name;
+  document.getElementById("modalBody").innerHTML =
+    '<div class="grid-2">' +
+      '<div class="field"><label>Depot Location</label><select id="f_location">' +
+        '<option ' + (reg.location==='Depot 1 & 2'?'selected':'') + '>Depot 1 & 2</option>' +
+        '<option ' + (reg.location==='Depot 1'?'selected':'') + '>Depot 1</option>' +
+        '<option ' + (reg.location==='Depot 2'?'selected':'') + '>Depot 2</option>' +
+      '</select></div>' +
+      '<div class="field"><label>Status ' + (canEditExisting ? '(Safety Officer Control)' : '(Auto-set on Upload)') + '</label>' +
+      '<select id="f_status" ' + (canEditExisting ? '' : 'disabled') + '>' +
+        '<option value="Complied" ' + (reg.status==='Complied'?'selected':'') + '>Complied / Submitted</option>' +
+        '<option value="Due Soon" ' + (reg.status==='Due Soon'?'selected':'') + '>Due Soon</option>' +
+        '<option value="URGENT" ' + (reg.status==='URGENT'?'selected':'') + '>URGENT</option>' +
+      '</select></div>' +
+    '</div>' +
+    '<div class="field"><label>Upload Inspection File / Evidence (PDF, JPG, PNG)</label><input id="f_file" type="file" accept=".pdf,.png,.jpg,.jpeg,.xlsx,.docx" /></div>' +
+    '<div class="field"><label>Or Paste Google Drive Link (Optional)</label><input id="f_driveUrl" type="url" value="' + (reg.fileUrl || '') + '" placeholder="Paste Google Drive link if stored externally..." /></div>' +
+    '<div class="field"><label>Remarks / Shift Notes</label><textarea id="f_remarks" rows="2"></textarea></div>';
+  document.getElementById("entryModal").classList.add("open");
+}
+
+function openEntryModal(formType) {
+  const mapCode = { BP:"MFI-DVO-HSSE-08-002", WSOR:"MFI-DVO-HSSE-04-002", JHA:"MFI-DVO-HSSE-03-002", TBT:"MFI-DVO-HSSE-08-001", FIRE:"MFI-DVO-HSSE-09-001", MANPOWER:"MFI-DVO-HSSE-06-001" };
+  openUpdateModal(mapCode[formType], currentRole === "safety_officer");
+}
+
+async function saveModalRecord() {
+  const btn = document.getElementById("saveEntryBtn");
+  btn.textContent = "Uploading...";
+  btn.disabled = true;
+
+  const location = document.getElementById("f_location").value;
+  const status = document.getElementById("f_status").value;
+  const remarks = document.getElementById("f_remarks").value;
+  let finalFileUrl = document.getElementById("f_driveUrl").value.trim();
+
+  const fileInput = document.getElementById("f_file");
+  if (fileInput && fileInput.files.length > 0) {
+    const file = fileInput.files;
+    const filePath = currentModalContext.modCode + "/" + currentModalContext.code + "_" + Date.now() + "_" + file.name;
+    const upRes = await sb.storage.from("hsse-evidence").upload(filePath, file);
+    if (upRes.error) {
+      alert("File upload error: " + upRes.error.message);
+      btn.textContent = "Upload & Save Record"; btn.disabled = false;
+      return;
+    }
+    const pubRes = sb.storage.from("hsse-evidence").getPublicUrl(filePath);
+    finalFileUrl = pubRes.data.publicUrl;
+  }
+
+  const dbRes = await sb.from("hsse_logs").insert([{
+    control_no: currentModalContext.code,
+    module_code: currentModalContext.modCode,
+    report_name: currentModalContext.name,
+    depot_location: location,
+    status: status,
+    file_url: finalFileUrl,
+    remarks: remarks,
+    submitted_by: currentUser.id
+  }]);
+
+  btn.textContent = "Upload & Save Record";
+  btn.disabled = false;
+
+  if (dbRes.error) {
+    alert("Permission Denied by Security Policy: " + dbRes.error.message);
+    return;
+  }
+
+  await syncLogsFromSupabase();
+  closeModal("entryModal");
+  renderTable();
+}
+
+async function openUsersModal() {
+  const res = await sb.from("profiles").select("*").order("created_at", { ascending: false });
+  if (res.error) return alert(res.error.message);
+
+  document.getElementById("usersTableBody").innerHTML = res.data.map(function(u) {
+    return '<tr>' +
+      '<td style="font-weight:600;color:#fff">' + (u.full_name || "-") + '</td>' +
+      '<td style="color:#94a3b8">' + u.email + '</td>' +
+      '<td>' + (u.requested_classification || "-") + '</td>' +
+      '<td><select onchange="updateUserRole(\'' + u.id + '\', this.value)">' +
+        '<option value="viewer" ' + (u.role==='viewer'?'selected':'') + '>Viewer (Read-Only / Non-Permitted)</option>' +
+        '<option value="operations" ' + (u.role==='operations'?'selected':'') + '>Operations (Modules 03, 04, 06, 07)</option>' +
+        '<option value="management" ' + (u.role==='management'?'selected':'') + '>Management (Modules 01, 02, 12)</option>' +
+        '<option value="safety_officer" ' + (u.role==='safety_officer'?'selected':'') + '>Safety Officer (Full Admin)</option>' +
+      '</select></td></tr>';
+  }).join("");
+  document.getElementById("usersModal").classList.add("open");
+}
+
+async function updateUserRole(userId, newRole) {
+  const res = await sb.from("profiles").update({ role: newRole }).eq("id", userId);
+  if (res.error) alert("Error updating role: " + res.error.message);
+}
+
+function printRegisterRow(code) {
+  const reg = registers.find(function(r) { return r.code === code; });
+  document.getElementById("printArea").innerHTML =
+    '<div style="font-family:Arial,sans-serif;border:2px solid #00243d;padding:24px">' +
+      '<h2 style="margin:0;color:#00243d">MAERSK FILIPINAS INC.</h2>' +
+      '<p style="margin:4px 0 16px 0;font-size:12px">Container Depot 1 &amp; Depot 2 • Tibungco, Bunawan, Davao City</p>' +
+      '<h3 style="background:#00243d;color:#fff;padding:8px;margin:0 0 16px 0">' + reg.code + ' — ' + reg.name + '</h3>' +
+      '<table style="width:100%;border-collapse:collapse;font-size:13px">' +
+        '<tr><td style="border:1px solid #ccc;padding:8px;font-weight:bold">Module</td><td style="border:1px solid #ccc;padding:8px">' + reg.module + '</td></tr>' +
+        '<tr><td style="border:1px solid #ccc;padding:8px;font-weight:bold">ISO / DOLE Reference</td><td style="border:1px solid #ccc;padding:8px">' + reg.ref + '</td></tr>' +
+        '<tr><td style="border:1px solid #ccc;padding:8px;font-weight:bold">Depot Location</td><td style="border:1px solid #ccc;padding:8px">' + reg.location + '</td></tr>' +
+        '<tr><td style="border:1px solid #ccc;padding:8px;font-weight:bold">Status</td><td style="border:1px solid #ccc;padding:8px">' + reg.status + '</td></tr>' +
+        '<tr><td style="border:1px solid #ccc;padding:8px;font-weight:bold">Attached File URL</td><td style="border:1px solid #ccc;padding:8px">' + (reg.fileUrl || "None") + '</td></tr>' +
+        '<tr><td style="border:1px solid #ccc;padding:8px;font-weight:bold">Generated</td><td style="border:1px solid #ccc;padding:8px">' + new Date().toLocaleString() + '</td></tr>' +
+      '</table></div>';
+  window.print();
+}
+
+function printCurrentModal() { window.print(); }
+function closeModal(id) { document.getElementById(id).classList.remove("open"); }
+
+async function fetchTibungcoWeather() {
+  try {
+    const res = await fetch(WEATHER_URL);
+    const data = await res.json();
+    const cur = data.current;
+    document.getElementById("wTemp").textContent = cur.temperature_2m + "°C";
+    document.getElementById("wWind").textContent = "Wind: " + cur.wind_speed_10m + " km/h";
+    document.getElementById("wRain").textContent = "Rain: " + cur.precipitation + " mm";
+    const alertEl = document.getElementById("wAlert");
+    if (cur.wind_speed_10m >= 35) {
+      alertEl.textContent = "HIGH WIND: Restrict Stacking";
+      alertEl.style.background = "#dc2626"; alertEl.style.color = "#fff";
+    } else if (cur.temperature_2m >= 33) {
+      alertEl.textContent = "HEAT ADVISORY: Hydrate";
+      alertEl.style.background = "rgba(245,158,11,0.25)"; alertEl.style.color = "#fcd34d";
+    } else {
+      alertEl.textContent = "Yard Ops Normal";
+    }
+  } catch (e) { document.getElementById("wAlert").textContent = "Live Telemetry Active"; }
+}
+</script>
+</body>
+</html>
