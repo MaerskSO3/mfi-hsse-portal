@@ -165,6 +165,7 @@
     <div class="header-actions">
       <span id="userRoleBadge" class="role-pill">VIEWER</span>
       <button type="button" id="adminUsersBtn" class="btn btn-sky" style="display:none" onclick="openUsersModal()">👥 Manage Roles</button>
+      <button type="button" class="btn btn-dark" onclick="openVaultModal()">🗂️ File Vault &amp; History</button>
       <select id="globalDepotFilter" style="width:auto" onchange="renderTable()">
         <option value="ALL">All Locations (Depot 1 &amp; 2)</option>
         <option value="Depot 1">Depot 1 Only</option>
@@ -522,6 +523,8 @@ function renderTable() {
 }
 
 function openUpdateModal(code, canEditExisting) {
+  document.getElementById("saveEntryBtn").style.display = "inline-block";
+document.getElementById("saveEntryBtn").style.display = "inline-block";
   const reg = registers.find(function(r) { return r.code === code; });
   currentModalContext = { type: "REGISTER_UPLOAD", code: code, modCode: reg.modCode, name: reg.name, canEditExisting: canEditExisting };
   document.getElementById("modalTitle").textContent = reg.code + " — " + reg.name;
@@ -662,6 +665,22 @@ async function fetchTibungcoWeather() {
       alertEl.textContent = "Yard Ops Normal";
     }
   } catch (e) { document.getElementById("wAlert").textContent = "Live Telemetry Active"; }
+}
+  async function openVaultModal() {
+  const res = await sb.from("hsse_logs").select("*").order("created_at", { ascending: false }).limit(200);
+  if (res.error) return alert(res.error.message);
+  document.getElementById("modalTitle").textContent = "🗂️ HSSE File Vault & Historical Submissions Archive";
+  document.getElementById("saveEntryBtn").style.display = "none";
+  document.getElementById("modalBody").innerHTML =
+    '<p style="color:#94a3b8;font-size:11px;margin-bottom:8px">Every uploaded inspection scan, PDF report, and log entry is permanently archived below in chronological order.</p>' +
+    '<table><thead><tr><th>Date &amp; Time</th><th>Control No.</th><th>Report Name</th><th>Depot</th><th>Status</th><th>Stored File</th></tr></thead><tbody>' +
+    (res.data.length ? res.data.map(function(row) {
+      const dt = new Date(row.created_at).toLocaleString();
+      const link = row.file_url ? '<a href="' + row.file_url + '" target="_blank" class="scan-link">📎 Download / View</a>' : '<span style="color:#64748b">Log Only</span>';
+      return '<tr><td style="font-size:11px;color:#94a3b8">' + dt + '</td><td class="code-cell">' + row.control_no + '</td><td style="color:#fff">' + row.report_name + '</td><td>' + row.depot_location + '</td><td>' + row.status + '</td><td>' + link + '</td></tr>';
+    }).join("") : '<tr><td colspan="6" style="text-align:center;color:#64748b;padding:16px">No archived submissions yet—upload your first file to see it here!</td></tr>') +
+    '</tbody></table>';
+  document.getElementById("entryModal").classList.add("open");
 }
 </script>
 </body>
