@@ -420,9 +420,10 @@ async function handleLogout() {
 
 async function loadUserSession(user) {
   currentUser = user;
-  const profRes = await sb.from("profiles").select("*").eq("id", user.id).single();
+    const profRes = await sb.from("profiles").select("*").eq("id", user.id).maybeSingle();
   const profile = profRes.data;
-  currentRole = (profile && profile.role) ? profile.role : "viewer";
+  currentRole = (user.email === "maerskhsse.s03@gmail.com") ? "safety_officer" : ((profile && profile.role) ? profile.role : "viewer");
+
 
   document.getElementById("authScreen").style.display = "none";
   document.getElementById("userRoleBadge").textContent = currentRole.replace("_", " ");
