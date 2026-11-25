@@ -229,8 +229,11 @@
       <div id="execDashboardPanel" class="exec-panel">
   <!-- 1. TOP KPI COUNTER STRIP (From Photo 6) -->
   <div class="kpi-strip">
-    <div class="kpi-card" style="border-left:3px solid #38bdf8">
-      <div class="kpi-title">Total Safe Man-Hours</div>
+        <div class="kpi-card" style="border-left:3px solid #38bdf8">
+      <div class="kpi-title" style="display:flex;justify-content:space-between;align-items:center">
+        <span>Total Safe Man-Hours</span>
+        <button type="button" class="btn btn-sky" style="padding:2px 6px;font-size:9px" onclick="openDailyManpowerModal()">+ Daily 8h</button>
+      </div>
       <div class="kpi-val" id="kpiManHours">33,072</div>
     </div>
     <div class="kpi-card" style="border-left:3px solid #10b981">
@@ -286,7 +289,11 @@
 
     <!-- CARD E: AVE. MANPOWER (159) & MOBILE YARD (Photo 5) -->
     <div class="dash-card">
-      <h4><span>👷 Ave. Manpower (159 Pax) &amp; Mobile Yard</span><span style="color:#94a3b8;font-size:10px">Depot 1 &amp; 2</span></h4>
+            <h4>
+        <span>👷 Ave. Manpower &amp; Safe Man-Hours (8h/Day)</span>
+        <button type="button" class="btn btn-green" style="padding:2px 7px;font-size:10px" onclick="openDailyManpowerModal()">+ Encode Daily Pax</button>
+      </h4>
+      <div id="missingVendorBanner" style="font-size:10px;font-weight:700;padding:4px 8px;border-radius:5px;margin-bottom:6px;background:rgba(245,158,11,0.2);border:1px solid #f59e0b;color:#fcd34d">Checking today's contractor submissions...</div>
       <div style="height:135px"><canvas id="chartManpower"></canvas></div>
       <div style="font-size:10px;color:#cbd5e1;margin-top:6px;background:#020617;padding:5px 8px;border-radius:5px">
         <strong>Trainings:</strong> Road Safety Standard &amp; Driver Life-Saving Rule<br/>
@@ -668,6 +675,7 @@ async function loadUserSession(user) {
   });
 
   await syncLogsFromSupabase();
+  await syncLiveChartData();
   renderSidebar();
   renderTable();
   fetchTibungcoWeather();
@@ -827,6 +835,7 @@ async function saveModalRecord() {
   }
 
   await syncLogsFromSupabase();
+  await syncLiveChartData();
   closeModal("entryModal");
   renderTable();
 }
@@ -913,6 +922,8 @@ async function fetchTibungcoWeather() {
   document.getElementById("entryModal").classList.add("open");
 }
   let chartLagObj = null, chartLeadObj = null, chartMpObj = null;
+const SUBJECT_VENDORS = new Array("PBCS", "G-FORTUNE", "RMS", "KTC", "KUDOS", "SHIELDS", "MAERSK");
+let todayEncodedVendors = new Array();
 
 function initWindyRadar() {
   const wf = document.getElementById("windyFrame");
@@ -920,23 +931,14 @@ function initWindyRadar() {
   if (wf && !wf.src) {
     wf.src = "https://embed." + "windy.com" + "/embed2.html?lat=7.22&lon=125.65&detailLat=7.22&detailLon=125.65&width=650&height=450&zoom=10&level=surface&overlay=wind&product=ecmwf&menu=&message=true&marker=true&calendar=now&pressure=&type=map&location=coordinates&detail=&metricWind=kt&metricTemp=%C2%B0C&radarRange=-1";
   }
-  if (wl) {
-    wl.href = "https://www." + "windy.com" + "/?7.220,125.650,11";
-  }
+  if (wl) wl.href = "https://www." + "windy.com" + "/?7.220,125.650,11";
 }
 
-let hsseMetrics = JSON.parse(localStorage.getItem("mfi_hsse_metrics") || "null") || {
+let hsseMetrics = {
   safeManHours: 33072,
   lagging: { lti: 0, mtc: 0, fac: 0, nearmiss: 0, prop: 0, env: 0, lostDays: 0 },
-  leading: { uauc: 0, insp: 0, ptw: 0, mhe: 0, chock: 0, contractor: 0, hes: 100 },
-  statutory: new Array(
-    { agency: "DOLE - WAIR (Accident Report)", due: "Every 20th of Following Month", status: "Compliant" },
-    { agency: "DOLE - AEDR (Annual Exposure)", due: "On or Before January 30", status: "Pending" },
-    { agency: "DOLE - AMR (Annual Medical)", due: "On or Before March 31", status: "Overdue" },
-    { agency: "DOLE - WEM (Work Env. Measure)", due: "Annual / Risk-Based", status: "Compliant" },
-    { agency: "DENR/EMB - SMR & CMR (PCO)", due: "Quarterly / Semi-Annual", status: "Pending" },
-    { agency: "BFP - FSIC & Fire Drill Cert.", due: "Annual / Semi-Annual Drills", status: "Overdue" }
-  ),
+  leading: { uauc: 100, insp: 100, ptw: 100, mhe: 100, chock: 100, contractor: 100, hes: 100 },
+  manpower: { "PBCS": 35, "G-FORTUNE": 43, "RMS": 0, "KTC": 0, "KUDOS": 18, "SHIELDS": 17, "MAERSK": 2 },
   ptwVendors: new Array(
     { name: "PBCS", status: "Compliant" },
     { name: "G-FORTUNE", status: "Non-compliant" },
@@ -945,27 +947,116 @@ let hsseMetrics = JSON.parse(localStorage.getItem("mfi_hsse_metrics") || "null")
     { name: "KTC", status: "Compliant" },
     { name: "KODUS", status: "Compliant" }
   ),
-  rescueWeekKey: "",
-  ktcRescueCount: 5,
-  kodusRescueCount: 5
+  ktcRescueCount: 0,
+  kodusRescueCount: 0
 };
 
-function checkMondayReset() {
+function getMondayStart() {
   const now = new Date();
   const day = now.getDay();
-  const diffToMonday = now.getDate() - day + (day === 0 ? -6 : 1);
-  const mondayDate = new Date(now.getFullYear(), now.getMonth(), diffToMonday).toISOString().slice(0, 10);
-  document.getElementById("ptwWeekLabel").textContent = "Week of " + mondayDate;
-  if (hsseMetrics.rescueWeekKey && hsseMetrics.rescueWeekKey !== mondayDate) {
-    hsseMetrics.ktcRescueCount = 0;
-    hsseMetrics.kodusRescueCount = 0;
-  }
-  hsseMetrics.rescueWeekKey = mondayDate;
-  saveMetricsLocal();
+  const diff = now.getDate() - day + (day === 0 ? -6 : 1);
+  return new Date(now.getFullYear(), now.getMonth(), diff, 0, 0, 0, 0);
 }
 
-function saveMetricsLocal() {
-  localStorage.setItem("mfi_hsse_metrics", JSON.stringify(hsseMetrics));
+function calcGroupCompliancePct(codesList) {
+  const subset = registers.filter(function(r) { return codesList.includes(r.code.replace("MFI-DVO-HSSE-", "")); });
+  if (!subset.length) return 100;
+  const ok = subset.filter(function(r) { return r.status === "Complied"; }).length;
+  return Math.round((ok / subset.length) * 100);
+}
+
+function mapRegStatusToStatutory(code) {
+  const reg = registers.find(function(r) { return r.code === code; });
+  if (!reg) return "Pending";
+  if (reg.status === "Complied") return "Compliant";
+  if (reg.status === "Due Soon") return "Pending";
+  return "Overdue";
+}
+
+async function syncLiveChartData() {
+  if (!sb) { renderExecDashboard(); return; }
+  const res = await sb.from("hsse_logs").select("*").order("created_at", { ascending: false }).limit(1000);
+  const logs = (res.data) ? res.data : new Array();
+  const mondayStart = getMondayStart();
+  const todayStr = new Date().toISOString().slice(0, 10);
+
+  let lti = 0, mtc = 0, fac = 0, nm = 0, prop = 0, env = 0;
+  let ktcWeek = 0, kodusWeek = 0;
+  let addedManHours = 0;
+  todayEncodedVendors = new Array();
+  const latestCounts = { "PBCS": 35, "G-FORTUNE": 43, "RMS": 0, "KTC": 0, "KUDOS": 18, "SHIELDS": 17, "MAERSK": 2 };
+
+  logs.forEach(function(row) {
+    const c = row.control_no || "";
+    const rName = row.report_name || "";
+    const rem = row.remarks || "";
+    const dt = new Date(row.created_at);
+
+    if (c === "MFI-DVO-HSSE-05-008" || c === "MFI-DVO-HSSE-05-001") lti++;
+    if (c === "MFI-DVO-HSSE-05-007") mtc++;
+    if (c === "MFI-DVO-HSSE-05-006") fac++;
+    if (c === "MFI-DVO-HSSE-05-002") nm++;
+    if (c === "MFI-DVO-HSSE-05-003" || c === "MFI-DVO-HSSE-05-005") prop++;
+    if (c === "MFI-DVO-HSSE-05-004") env++;
+
+    if (c === "MFI-DVO-HSSE-06-001" && rem.includes("HOURS=")) {
+      const hMatch = rem.match(/HOURS=(\d+)/);
+      if (hMatch && hMatch.at(1)) addedManHours += Number(hMatch.at(1));
+
+      const isToday = rem.includes("DATE=" + todayStr) || (row.created_at || "").startsWith(todayStr);
+      SUBJECT_VENDORS.forEach(function(v) {
+        const vMatch = rem.match(new RegExp(v + ":\\s*(\\d+)", "i"));
+        if (vMatch && vMatch.at(1)) {
+          latestCounts[v] = Number(vMatch.at(1));
+          if (isToday && !todayEncodedVendors.includes(v)) todayEncodedVendors.push(v);
+        }
+      });
+    }
+
+    if (dt >= mondayStart) {
+      if (rName.includes("KTC RESCUE")) ktcWeek++;
+      if (rName.includes("KODUS RESCUE")) kodusWeek++;
+    }
+
+    hsseMetrics.ptwVendors.forEach(function(v) {
+      if (rem.toUpperCase().includes(v.name + ": COMPLIANT")) v.status = "Compliant";
+      if (rem.toUpperCase().includes(v.name + ": NON-COMPLIANT")) v.status = "Non-compliant";
+    });
+  });
+
+  hsseMetrics.lagging = { lti: lti, mtc: mtc, fac: fac, nearmiss: nm, prop: prop, env: env, lostDays: lti * 10 };
+  hsseMetrics.safeManHours = 33072 + addedManHours;
+  hsseMetrics.manpower = latestCounts;
+  hsseMetrics.ktcRescueCount = ktcWeek;
+  hsseMetrics.kodusRescueCount = kodusWeek;
+
+  hsseMetrics.leading = {
+    uauc: calcGroupCompliancePct(new Array("03-005","03-006","03-007")),
+    insp: calcGroupCompliancePct(new Array("04-001","04-002","04-003","04-004","04-005","04-006")),
+    ptw: calcGroupCompliancePct(new Array("03-011","03-012","03-013","03-014","03-015","03-016","03-020")),
+    mhe: calcGroupCompliancePct(new Array("04-019","04-020","04-021","04-022","04-023")),
+    chock: calcGroupCompliancePct(new Array("07-001","07-002","07-004","07-005","07-008")),
+    contractor: calcGroupCompliancePct(new Array("06-001","06-005","06-007","06-008","06-014")),
+    hes: calcGroupCompliancePct(new Array("08-005","08-010","10-001","10-002","11-001"))
+  };
+
+  const missingToday = SUBJECT_VENDORS.filter(function(v) { return !todayEncodedVendors.includes(v); });
+  const banner = document.getElementById("missingVendorBanner");
+  if (banner) {
+    if (missingToday.length) {
+      banner.style.background = "rgba(239,68,68,0.2)";
+      banner.style.borderColor = "#ef4444";
+      banner.style.color = "#fca5a5";
+      banner.textContent = "⚠️ Pending Daily Manpower (" + todayStr + "): " + missingToday.join(", ");
+    } else {
+      banner.style.background = "rgba(16,185,129,0.2)";
+      banner.style.borderColor = "#10b981";
+      banner.style.color = "#6ee7b7";
+      banner.textContent = "✅ All 7 Subject Contractors Encoded for " + todayStr;
+    }
+  }
+
+  renderExecDashboard();
 }
 
 function toggleExecPanel() {
@@ -978,7 +1069,7 @@ function toggleExecPanel() {
 
 function renderExecDashboard() {
   initWindyRadar();
-  checkMondayReset();
+  document.getElementById("ptwWeekLabel").textContent = "Week of " + getMondayStart().toISOString().slice(0, 10);
 
   const totalRegs = registers.length || 1;
   const compRegs = registers.filter(function(r) { return r.status === "Complied"; }).length;
@@ -995,10 +1086,19 @@ function renderExecDashboard() {
   document.getElementById("kpiOverdue").textContent = overRegs;
   document.getElementById("docStatusSummary").textContent = "Compliant: " + compRegs + " | Due Soon: " + dueRegs + " | Overdue: " + overRegs;
 
-  document.getElementById("statutoryBody").innerHTML = hsseMetrics.statutory.map(function(s, i) {
+  const statutoryItems = new Array(
+    { agency: "DOLE - WAIR (Accident Report)", due: "Every 20th of Following Month", status: mapRegStatusToStatutory("MFI-DVO-HSSE-02-002") },
+    { agency: "DOLE - AEDR (Annual Exposure)", due: "On or Before January 30", status: mapRegStatusToStatutory("MFI-DVO-HSSE-02-003") },
+    { agency: "DOLE - AMR (Annual Medical)", due: "On or Before March 31", status: mapRegStatusToStatutory("MFI-DVO-HSSE-02-005") },
+    { agency: "DOLE - WEM (Work Env. Measure)", due: "Annual / Risk-Based", status: mapRegStatusToStatutory("MFI-DVO-HSSE-02-004") },
+    { agency: "DENR/EMB - SMR & CMR (PCO)", due: "Quarterly / Semi-Annual", status: mapRegStatusToStatutory("MFI-DVO-HSSE-10-001") },
+    { agency: "BFP - FSIC & Fire Drill Cert.", due: "Annual / Semi-Annual Drills", status: mapRegStatusToStatutory("MFI-DVO-HSSE-02-007") }
+  );
+
+  document.getElementById("statutoryBody").innerHTML = statutoryItems.map(function(s) {
     const cls = s.status === "Compliant" ? "pill-comp" : s.status === "Pending" ? "pill-pend" : "pill-over";
     return '<tr><td style="color:#fff;font-weight:600">' + s.agency + '</td><td style="color:#94a3b8">' + s.due + '</td>' +
-      '<td style="text-align:right"><span class="' + cls + '" style="cursor:pointer" onclick="cycleStatutoryStatus(' + i + ')">' + s.status + '</span></td></tr>';
+      '<td style="text-align:right"><span class="' + cls + '">' + s.status + '</span></td></tr>';
   }).join("");
 
   document.getElementById("ptwVendorBody").innerHTML = hsseMetrics.ptwVendors.map(function(v, i) {
@@ -1009,10 +1109,7 @@ function renderExecDashboard() {
   document.getElementById("ktcJoCount").textContent = hsseMetrics.ktcRescueCount;
   document.getElementById("kodusJoCount").textContent = hsseMetrics.kodusRescueCount;
 
-  if (typeof Chart === "undefined") {
-    setTimeout(renderExecDashboard, 600);
-    return;
-  }
+  if (typeof Chart === "undefined") { setTimeout(renderExecDashboard, 600); return; }
 
   const chartOpts = {
     indexAxis: "y",
@@ -1020,7 +1117,7 @@ function renderExecDashboard() {
     maintainAspectRatio: false,
     plugins: { legend: { display: false } },
     scales: {
-      x: { beginAtZero: true, ticks: { color: "#94a3b8", font: { size: 10 } }, grid: { color: "#1e293b" } },
+      x: { beginAtZero: true, ticks: { color: "#94a3b8", font: { size: 10 }, precision: 0 }, grid: { color: "#1e293b" } },
       y: { ticks: { color: "#cbd5e1", font: { size: 10 } }, grid: { display: false } }
     }
   };
@@ -1048,39 +1145,133 @@ function renderExecDashboard() {
   });
 
   if (chartMpObj) chartMpObj.destroy();
+  const mpKeys = Object.keys(hsseMetrics.manpower);
+  const mpVals = mpKeys.map(function(k) { return hsseMetrics.manpower[k]; });
   chartMpObj = new Chart(document.getElementById("chartManpower"), {
     type: "bar",
     data: {
-      labels: new Array("G-Fortune", "PBCS", "MRAY", "Kodus", "Shields", "Rafols", "InSafety", "Maersk Ops"),
-      datasets: new Array({ data: new Array(43, 35, 29, 18, 17, 13, 2, 2), backgroundColor: "#38bdf8", borderRadius: 4 })
+      labels: mpKeys,
+      datasets: new Array({ data: mpVals, backgroundColor: "#38bdf8", borderRadius: 4 })
     },
     options: chartOpts
   });
 }
 
-function cycleStatutoryStatus(idx) {
-  if (currentRole !== "safety_officer") return;
-  const order = new Array("Compliant", "Pending", "Overdue");
-  const cur = hsseMetrics.statutory.at(idx).status;
-  hsseMetrics.statutory.at(idx).status = order.at((order.indexOf(cur) + 1) % 3);
-  saveMetricsLocal(); renderExecDashboard();
+function openDailyManpowerModal() {
+  const todayStr = new Date().toISOString().slice(0, 10);
+  document.getElementById("modalTitle").textContent = "👷 Daily Contractor Manpower & Safe Man-Hours (8 Hrs/Day)";
+  document.getElementById("saveEntryBtn").style.display = "none";
+
+  const rowsHtml = SUBJECT_VENDORS.map(function(v) {
+    const isDone = todayEncodedVendors.includes(v);
+    const curVal = hsseMetrics.manpower[v] !== undefined ? hsseMetrics.manpower[v] : "";
+    const statusTag = isDone ? '<span class="pill-comp">Encoded Today</span>' : '<span class="pill-over">Not Yet Filled</span>';
+    return '<tr><td style="font-weight:700;color:#fff">' + v + '</td><td>' + statusTag + '</td>' +
+      '<td><input type="number" min="0" id="mp_in_' + v + '" value="' + curVal + '" placeholder="Enter pax..." oninput="recalcDailyManhoursPreview()" /></td>' +
+      '<td style="font-family:monospace;color:#38bdf8" id="mp_hrs_' + v + '">' + ((Number(curVal) || 0) * 8) + ' hrs</td></tr>';
+  }).join("");
+
+  document.getElementById("modalBody").innerHTML =
+    '<div class="grid-2">' +
+      '<div class="field"><label>Shift Date</label><input id="mp_date" type="date" value="' + todayStr + '" /></div>' +
+      '<div class="field"><label>Depot Location</label><select id="mp_loc"><option>Depot 1 &amp; 2</option><option>Depot 1</option><option>Depot 2</option></select></div>' +
+    '</div>' +
+    '<div id="mpMissingWarn" style="font-size:11px;padding:7px 10px;border-radius:6px;background:rgba(239,68,68,0.2);border:1px solid #ef4444;color:#fca5a5"></div>' +
+    '<table><thead><tr><th>Contractor / Vendor</th><th>Today Status</th><th>Headcount (Pax)</th><th>Man-Hours (× 8h)</th></tr></thead><tbody>' + rowsHtml + '</tbody></table>' +
+    '<div style="display:flex;justify-content:space-between;align-items:center;background:#020617;padding:10px;border:1px solid #1e293b;border-radius:6px">' +
+      '<span style="color:#cbd5e1">Total Pax: <strong id="mpTotalPax" style="color:#fff">0</strong></span>' +
+      '<span style="color:#38bdf8">Daily Man-Hours: <strong id="mpTotalHrs" style="font-size:14px">0</strong> hrs</span>' +
+      '<button type="button" class="btn btn-green" onclick="saveDailyManpowerLog()">Save &amp; Accumulate</button>' +
+    '</div>';
+
+  recalcDailyManhoursPreview();
+  document.getElementById("entryModal").classList.add("open");
 }
 
-function togglePtwVendor(idx) {
+function recalcDailyManhoursPreview() {
+  let totalPax = 0;
+  const missing = new Array();
+  SUBJECT_VENDORS.forEach(function(v) {
+    const inp = document.getElementById("mp_in_" + v);
+    const raw = inp ? inp.value.trim() : "";
+    if (raw === "") missing.push(v);
+    const pax = Number(raw) || 0;
+    totalPax += pax;
+    const cell = document.getElementById("mp_hrs_" + v);
+    if (cell) cell.textContent = (pax * 8).toLocaleString() + " hrs";
+  });
+  document.getElementById("mpTotalPax").textContent = totalPax;
+  document.getElementById("mpTotalHrs").textContent = (totalPax * 8).toLocaleString();
+  const warn = document.getElementById("mpMissingWarn");
+  if (missing.length) {
+    warn.style.display = "block";
+    warn.textContent = "⚠️ Attention: The following contractors are not yet filled: " + missing.join(", ");
+  } else {
+    warn.style.display = "none";
+  }
+}
+
+async function saveDailyManpowerLog() {
+  const shiftDate = document.getElementById("mp_date").value || new Date().toISOString().slice(0, 10);
+  const loc = document.getElementById("mp_loc").value;
+  let totalPax = 0;
+  const breakdown = new Array();
+  const missing = new Array();
+
+  SUBJECT_VENDORS.forEach(function(v) {
+    const raw = document.getElementById("mp_in_" + v).value.trim();
+    if (raw === "") missing.push(v);
+    else {
+      const pax = Number(raw) || 0;
+      totalPax += pax;
+      breakdown.push(v + ": " + pax);
+    }
+  });
+
+  if (missing.length > 0 && !confirm("Warning: " + missing.join(", ") + " have not been filled yet.\n\nClick OK to save partial count anyway, or Cancel to fill them in first.")) return;
+
+  const dailyHours = totalPax * 8;
+  const summaryText = "DATE=" + shiftDate + " | PAX=" + totalPax + " | HOURS=" + dailyHours + " | " + breakdown.join(" | ");
+
+  if (sb && currentUser) {
+    const res = await sb.from("hsse_logs").insert(new Array({
+      control_no: "MFI-DVO-HSSE-06-001",
+      module_code: "06",
+      report_name: "Daily Manpower & Safe Man-Hours (" + shiftDate + ")",
+      depot_location: loc,
+      status: missing.length === 0 ? "Complied" : "Due Soon",
+      remarks: summaryText,
+      submitted_by: currentUser.id
+    }));
+    if (res.error) return alert("Save error: " + res.error.message);
+  }
+
+  closeModal("entryModal");
+  await syncLiveChartData();
+  alert("Saved " + totalPax + " pax (" + dailyHours.toLocaleString() + " Safe Man-Hours) for " + shiftDate + "!");
+}
+
+async function togglePtwVendor(idx) {
   if (currentRole !== "safety_officer" && currentRole !== "operations") return;
-  const cur = hsseMetrics.ptwVendors.at(idx).status;
-  hsseMetrics.ptwVendors.at(idx).status = cur === "Compliant" ? "Non-compliant" : "Compliant";
-  saveMetricsLocal(); renderExecDashboard();
+  const v = hsseMetrics.ptwVendors.at(idx);
+  v.status = v.status === "Compliant" ? "Non-compliant" : "Compliant";
+  renderExecDashboard();
+  if (sb && currentUser) {
+    await sb.from("hsse_logs").insert(new Array({
+      control_no: "MFI-DVO-HSSE-03-011",
+      module_code: "03",
+      report_name: "Monday PTW Compliance Update (" + v.name + ")",
+      depot_location: "Depot 1 & 2",
+      status: v.status === "Compliant" ? "Complied" : "URGENT",
+      remarks: v.name + ": " + v.status.toUpperCase(),
+      submitted_by: currentUser.id
+    }));
+  }
 }
 
 async function logRescueJobOrder(vendorName) {
   const joNum = prompt("Enter Job Order / Control Series Number for " + vendorName + ":");
   if (!joNum) return;
-  if (vendorName === "KTC RESCUE") hsseMetrics.ktcRescueCount += 1;
-  if (vendorName === "KODUS RESCUE") hsseMetrics.kodusRescueCount += 1;
-  saveMetricsLocal();
-  renderExecDashboard();
-
   if (sb && currentUser) {
     await sb.from("hsse_logs").insert(new Array({
       control_no: "MFI-DVO-HSSE-03-011",
@@ -1088,40 +1279,19 @@ async function logRescueJobOrder(vendorName) {
       report_name: vendorName + " — Rescue Job Order (" + joNum + ")",
       depot_location: "Depot 1 & 2",
       status: "Complied",
-      remarks: "Weekly Rescue Job Order Logged | Series: " + joNum + " | Weekly Total: " + (vendorName === "KTC RESCUE" ? hsseMetrics.ktcRescueCount : hsseMetrics.kodusRescueCount),
+      remarks: "Weekly Rescue Job Order Logged | Series: " + joNum,
       submitted_by: currentUser.id
     }));
   }
+  await syncLiveChartData();
   alert("Job Order " + joNum + " recorded under " + vendorName + " and archived in File Vault!");
 }
 
-function openLaggingModal() {
-  if (currentRole !== "safety_officer") return alert("Only Safety Officer can update Lagging KPI counters.");
-  const lti = prompt("Lost Time Injuries (LTI):", hsseMetrics.lagging.lti);
-  if (lti === null) return;
-  hsseMetrics.lagging.lti = Number(lti) || 0;
-  hsseMetrics.lagging.mtc = Number(prompt("Medical Treatment Cases (MTC):", hsseMetrics.lagging.mtc)) || 0;
-  hsseMetrics.lagging.fac = Number(prompt("First Aid Cases (FAC):", hsseMetrics.lagging.fac)) || 0;
-  hsseMetrics.lagging.nearmiss = Number(prompt("Near-Miss Incidents:", hsseMetrics.lagging.nearmiss)) || 0;
-  hsseMetrics.lagging.prop = Number(prompt("Property / Vehicle Damage:", hsseMetrics.lagging.prop)) || 0;
-  hsseMetrics.lagging.env = Number(prompt("Environmental Incidents:", hsseMetrics.lagging.env)) || 0;
-  hsseMetrics.safeManHours = Number(prompt("Total Safe Man-Hours:", hsseMetrics.safeManHours)) || 33072;
-  saveMetricsLocal(); renderExecDashboard();
-}
+function openLaggingModal() { openUpdateModal("MFI-DVO-HSSE-05-002", true); }
+function openLeadingModal() { alert("Leading % bars auto-calculate directly from your Complied registers in Modules 03, 04, 06, 07, 08, 10 & 11!"); }
 
-function openLeadingModal() {
-  if (currentRole !== "safety_officer") return alert("Only Safety Officer can update Leading Indicator percentages.");
-  hsseMetrics.leading.uauc = Number(prompt("UA/UC & Hazards Closed (%):", hsseMetrics.leading.uauc)) || 0;
-  hsseMetrics.leading.insp = Number(prompt("Average Depot Inspection Score (%):", hsseMetrics.leading.insp)) || 0;
-  hsseMetrics.leading.ptw = Number(prompt("PTW Proper Close-Out Rate (%):", hsseMetrics.leading.ptw)) || 0;
-  hsseMetrics.leading.mhe = Number(prompt("Heavy Equipment Pre-Shift Pass (%):", hsseMetrics.leading.mhe)) || 0;
-  hsseMetrics.leading.chock = Number(prompt("Wheel Chock Compliance Avg (%):", hsseMetrics.leading.chock)) || 0;
-  hsseMetrics.leading.contractor = Number(prompt("Contractor Audit Avg Score (%):", hsseMetrics.leading.contractor)) || 0;
-  hsseMetrics.leading.hes = Number(prompt("Health, Enviro & Security (%):", hsseMetrics.leading.hes)) || 100;
-  saveMetricsLocal(); renderExecDashboard();
-}
+syncLiveChartData();
 
-renderExecDashboard();
 
 </script>
 </body>
