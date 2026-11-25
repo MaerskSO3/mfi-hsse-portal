@@ -1028,7 +1028,7 @@ function initWindyRadar() {
 }
 
 let hsseMetrics = {
-  safeManHours: 33072,
+  safeManHours: 0,
   lagging: { lti: 0, mtc: 0, fac: 0, nearmiss: 0, prop: 0, env: 0, lostDays: 0 },
   leading: { uauc: 100, insp: 100, ptw: 100, mhe: 100, chock: 100, contractor: 100, hes: 100 },
   manpower: { "PBCS": 35, "G-FORTUNE": 43, "RMS": 0, "KTC": 0, "KUDOS": 18, "SHIELDS": 17, "MAERSK": 2 },
@@ -1118,7 +1118,7 @@ async function syncLiveChartData() {
   });
 
   hsseMetrics.lagging = { lti: lti, mtc: mtc, fac: fac, nearmiss: nm, prop: prop, env: env, lostDays: lti * 10 };
-  hsseMetrics.safeManHours = 33072 + addedManHours;
+  hsseMetrics.safeManHours = (Number(portalSettings.manHoursBaseline) || 0) + addedManHours;
   hsseMetrics.manpower = latestCounts;
   hsseMetrics.ktcRescueCount = ktcWeek;
   hsseMetrics.kodusRescueCount = kodusWeek;
@@ -2177,7 +2177,7 @@ startRealtimeManilaClock();
 let portalSettings = JSON.parse(localStorage.getItem("mfi_portal_settings") || "null") || {
   testingMode: true,
   seriesPrefix: "MFI-DVO-HSSE-",
-  manHoursBaseline: 33072,
+  manHoursBaseline: 0,
   shiftHours: 8,
   dueSoonDays: 7,
   subjectVendors: new Array("PBCS", "G-FORTUNE", "RMS", "KTC", "KUDOS", "SHIELDS", "MAERSK"),
