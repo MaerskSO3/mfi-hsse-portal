@@ -247,6 +247,7 @@
       <div class="toolbar">
         <input id="searchInput" style="width:300px" oninput="renderTable()" type="text" placeholder="Search Control No., Report Name, ISO/DOLE Ref..." />
         <div class="quick-btns" id="quickEntryBar" style="display:flex;gap:6px;flex-wrap:wrap">
+          <button type="button" class="btn btn-sky" data-mod="08" onclick="openClinicInventoryModal('FA', 'ledger')">+ Clinic &amp; FA Inventory</button>
           <button type="button" class="btn btn-green" data-mod="12" onclick="openCountryGlobalModal()">+ Country Global Task</button>
           <button type="button" class="btn btn-sky" data-mod="08" onclick="openEntryModal('BP')">+ BP Monitoring</button>
           <button type="button" class="btn btn-sky" data-mod="04" onclick="openEntryModal('WSOR')">+ WSOR Walkthrough</button>
@@ -945,21 +946,70 @@ async function fetchTibungcoWeather() {
     }
   } catch (e) { document.getElementById("wAlert").textContent = "Live Telemetry Active"; }
 }
-  async function openVaultModal() {
-  const res = await sb.from("hsse_logs").select("*").order("created_at", { ascending: false }).limit(200);
+ let cachedVaultRows = new Array();
+let activeVaultFolder = "ALL";
+
+async function openVaultModal(folderFilter) {
+  if (folderFilter) activeVaultFolder = folderFilter;
+  const res = await sb.from("hsse_logs").select("*").order("created_at", { ascending: false }).limit(500);
   if (res.error) return alert(res.error.message);
-  document.getElementById("modalTitle").textContent = "🗂️ HSSE File Vault & Historical Submissions Archive";
+  cachedVaultRows = res.data || new Array();
+
+  const folders = new Array(
+    { id: "ALL", label: "All Modules" },
+    { id: "03", label: "03 - PTW & Risk" },
+    { id: "04", label: "04 - WSOR & Insp." },
+    { id: "05", label: "05 - Incidents (Lagging)" },
+    { id: "06", label: "06 - Manpower (8h)" },
+    { id: "08", label: "08 - Clinic & FA Meds" },
+    { id: "12", label: "12 - Country Global Tasks" }
+  );
+
+  const visibleRows = cachedVaultRows.filter(function(r) {
+    return activeVaultFolder === "ALL" || r.module_code === activeVaultFolder;
+  });
+
+  document.getElementById("modalTitle").textContent = "🗂️ Consolidated HSSE Module & Chart File Vault";
   document.getElementById("saveEntryBtn").style.display = "none";
   document.getElementById("modalBody").innerHTML =
-    '<p style="color:#94a3b8;font-size:11px;margin-bottom:8px">Every uploaded inspection scan, PDF report, and log entry is permanently archived below in chronological order.</p>' +
-    '<table><thead><tr><th>Date &amp; Time</th><th>Control No.</th><th>Report Name</th><th>Depot</th><th>Status</th><th>Stored File</th></tr></thead><tbody>' +
-    (res.data.length ? res.data.map(function(row) {
+    '<div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px">' +
+      folders.map(function(f) {
+        return '<button type="button" class="btn ' + (activeVaultFolder === f.id ? "btn-sky" : "btn-dark") + '" style="padding:4px 8px;font-size:10px" onclick="openVaultModal(\'' + f.id + '\')">' + f.label + '</button>';
+      }).join("") +
+      '<button type="button" class="btn btn-green" style="margin-left:auto;padding:4px 10px;font-size:10px" onclick="exportVaultCSV()">📥 Export CSV</button>' +
+    '</div>' +
+    '<table><thead><tr><th>Date &amp; Time</th><th>Folder / Control No.</th><th>Report / Activity</th><th>Depot</th><th>Status</th><th>Details</th><th>Stored File</th></tr></thead><tbody>' +
+    (visibleRows.length ? visibleRows.map(function(row) {
       const dt = new Date(row.created_at).toLocaleString();
-      const link = row.file_url ? '<a href="' + row.file_url + '" target="_blank" class="scan-link">📎 Download / View</a>' : '<span style="color:#64748b">Log Only</span>';
-      return '<tr><td style="font-size:11px;color:#94a3b8">' + dt + '</td><td class="code-cell">' + row.control_no + '</td><td style="color:#fff">' + row.report_name + '</td><td>' + row.depot_location + '</td><td>' + row.status + '</td><td>' + link + '</td></tr>';
-    }).join("") : '<tr><td colspan="6" style="text-align:center;color:#64748b;padding:16px">No archived submissions yet—upload your first file to see it here!</td></tr>') +
+      const link = row.file_url ? '<a href="' + row.file_url + '" target="_blank" class="scan-link">📎 View File</a>' : '<span style="color:#64748b">Log Only</span>';
+      return '<tr><td style="font-size:10px;color:#94a3b8;white-space:nowrap">' + dt + '</td><td class="code-cell">[' + (row.module_code || "00") + '] ' + row.control_no + '</td><td style="color:#fff">' + row.report_name + '</td><td>' + row.depot_location + '</td><td>' + row.status + '</td><td style="font-size:10px;color:#cbd5e1">' + (row.remarks || "-") + '</td><td>' + link + '</td></tr>';
+    }).join("") : '<tr><td colspan="7" style="text-align:center;color:#64748b;padding:16px">No records in this module folder yet.</td></tr>') +
     '</tbody></table>';
   document.getElementById("entryModal").classList.add("open");
+}
+
+function exportVaultCSV() {
+  if (!cachedVaultRows.length) return alert("No records available to export yet.");
+  const headers = new Array("Timestamp", "Control No", "Module", "Report Name", "Depot Location", "Status", "Remarks", "File URL");
+  const csvLines = new Array(headers.join(","));
+  cachedVaultRows.forEach(function(r) {
+    const line = new Array(
+      '"' + new Date(r.created_at).toLocaleString().replace(/"/g, '""') + '"',
+      '"' + (r.control_no || "").replace(/"/g, '""') + '"',
+      '"' + (r.module_code || "").replace(/"/g, '""') + '"',
+      '"' + (r.report_name || "").replace(/"/g, '""') + '"',
+      '"' + (r.depot_location || "").replace(/"/g, '""') + '"',
+      '"' + (r.status || "").replace(/"/g, '""') + '"',
+      '"' + (r.remarks || "").replace(/"/g, '""') + '"',
+      '"' + (r.file_url || "").replace(/"/g, '""') + '"'
+    );
+    csvLines.push(line.join(","));
+  });
+  const blob = new Blob(new Array(csvLines.join("\n")), { type: "text/csv;charset=utf-8;" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "MFI-DVO-HSSE-Audit-Vault-" + new Date().toISOString().slice(0, 10) + ".csv";
+  a.click();
 }
   let chartLagObj = null, chartLeadObj = null, chartMpObj = null;
 const SUBJECT_VENDORS = new Array("PBCS", "G-FORTUNE", "RMS", "KTC", "KUDOS", "SHIELDS", "MAERSK");
@@ -1781,7 +1831,309 @@ async function saveNewCalEvent() {
 }
 
 buildSyncedEventsList(new Array());
+// ============================================================
+// 5. UPGRADED LAGGING INCIDENT (+ LOG) MODAL WITH 6 CATEGORIES
+// ============================================================
+function openLaggingModal() {
+  const todayStr = new Date().toISOString().slice(0, 10);
+  document.getElementById("modalTitle").textContent = "🚨 Log Incident & Lagging Indicator (Module 05)";
+  document.getElementById("saveEntryBtn").style.display = "none";
 
+  document.getElementById("modalBody").innerHTML =
+    '<div class="grid-2">' +
+      '<div class="field"><label>Lagging Classification (Chart Category)</label>' +
+        '<select id="lag_type">' +
+          '<option value="LTI">LTI (Lost Time Injury)</option>' +
+          '<option value="MTC">MTC (Medical Treatment Case)</option>' +
+          '<option value="FAC">FAC (First Aid Case)</option>' +
+          '<option value="Near-Miss">Near-Miss Incident</option>' +
+          '<option value="Prop/Veh Dmg">Prop / Veh Damage</option>' +
+          '<option value="Env. Incident">Environmental Incident</option>' +
+        '</select>' +
+      '</div>' +
+      '<div class="field"><label>Incident Date</label><input id="lag_date" type="date" value="' + todayStr + '" /></div>' +
+      '<div class="field"><label>Depot Location</label><select id="lag_loc"><option>Depot 1</option><option>Depot 2</option><option>Depot 1 &amp; 2</option></select></div>' +
+      '<div class="field"><label>Involved Vendor / Personnel</label><input id="lag_who" placeholder="Name / Vendor (PBCS, G-Fortune, etc.)" /></div>' +
+    '</div>' +
+    '<div class="field"><label>Incident Summary &amp; Immediate Action</label><textarea id="lag_desc" rows="2" placeholder="Describe what happened and immediate control taken..."></textarea></div>' +
+    '<div class="field"><label>Upload Incident Report / Photo (Stored in Module 05 Folder)</label><input id="lag_file" type="file" accept=".pdf,image/*,.docx,.xlsx" /></div>' +
+    '<button type="button" class="btn btn-red" style="width:100%;padding:9px" onclick="saveLaggingIncidentLog()">Submit Incident &amp; Update Lagging Chart</button>';
+
+  document.getElementById("entryModal").classList.add("open");
+}
+
+async function saveLaggingIncidentLog() {
+  const type = document.getElementById("lag_type").value;
+  const dt = document.getElementById("lag_date").value;
+  const loc = document.getElementById("lag_loc").value;
+  const who = document.getElementById("lag_who").value.trim();
+  const desc = document.getElementById("lag_desc").value.trim();
+
+  const codeMap = {
+    "LTI": "MFI-DVO-HSSE-05-008",
+    "MTC": "MFI-DVO-HSSE-05-007",
+    "FAC": "MFI-DVO-HSSE-05-006",
+    "Near-Miss": "MFI-DVO-HSSE-05-002",
+    "Prop/Veh Dmg": "MFI-DVO-HSSE-05-003",
+    "Env. Incident": "MFI-DVO-HSSE-05-004"
+  };
+  const folderSlug = type.replace(/[^a-zA-Z0-9]/g, "-");
+  const ctrlNo = codeMap[type] || "MFI-DVO-HSSE-05-001";
+
+  let fileUrl = "";
+  const fInp = document.getElementById("lag_file");
+  if (fInp && fInp.files && fInp.files.length > 0 && sb) {
+    const f = fInp.files.item(0);
+    const path = "05/" + folderSlug + "/" + ctrlNo + "_" + dt + "_" + Date.now() + "_" + f.name;
+    const up = await sb.storage.from("hsse-evidence").upload(path, f);
+    if (!up.error) fileUrl = sb.storage.from("hsse-evidence").getPublicUrl(path).data.publicUrl;
+  }
+
+  const remarks = "LAGGING_TYPE=" + type + " | Date: " + dt + " | Involved: " + who + " | Details: " + desc;
+  if (sb && currentUser) {
+    const res = await sb.from("hsse_logs").insert(new Array({
+      control_no: ctrlNo,
+      module_code: "05",
+      report_name: "[" + type + "] Incident Log — " + (who || loc),
+      depot_location: loc,
+      status: type === "LTI" ? "URGENT" : "Complied",
+      file_url: fileUrl,
+      remarks: remarks,
+      submitted_by: currentUser.id
+    }));
+    if (res.error) return alert("Save error: " + res.error.message);
+  }
+
+  closeModal("entryModal");
+  await syncLiveChartData();
+  alert(type + " logged under " + ctrlNo + ", stored in Module 05/" + folderSlug + " folder, and chart updated!");
+}
+
+// ============================================================
+// 6. FA - MEDICINE SECTION (CLINIC & FA INVENTORY + DISPENSING)
+// ============================================================
+let clinicState = JSON.parse(localStorage.getItem("mfi_clinic_inventory") || "null") || {
+  faItems: new Array(
+    { date: "2026-11-25", name: "Povidone-Iodine (Betadine)", desc: "Antiseptic Wound Solution", size: "120 mL", added: 10, dispensed: 0 },
+    { date: "2026-11-25", name: "Sterile Gauze Pad", desc: "4x4 Wound Dressing", size: "100 pcs/box", added: 50, dispensed: 0 }
+  ),
+  medItems: new Array(
+    { date: "2026-11-25", type: "Tablet", name: "Paracetamol", mg: "500 mg", added: 100, dispensed: 0 },
+    { date: "2026-11-25", type: "Capsule", name: "Loperamide", mg: "2 mg", added: 50, dispensed: 0 }
+  ),
+  transactions: new Array()
+};
+
+function saveClinicStateLocal() {
+  localStorage.setItem("mfi_clinic_inventory", JSON.stringify(clinicState));
+}
+
+function openClinicInventoryModal(section, subView) {
+  const sec = section || "FA";
+  const view = subView || "ledger";
+  const todayStr = new Date().toISOString().slice(0, 10);
+
+  document.getElementById("modalTitle").textContent = "🏥 Clinic & First-Aid / Medicine Inventory (Module 08 & 05)";
+  document.getElementById("saveEntryBtn").style.display = "none";
+
+  const faNames = Array.from(new Set(clinicState.faItems.map(function(i) { return i.name; })));
+  const medNames = Array.from(new Set(clinicState.medItems.map(function(i) { return i.name; })));
+
+  let contentHtml =
+    '<div style="display:flex;gap:8px;margin-bottom:8px;background:#020617;padding:4px;border-radius:6px">' +
+      '<button type="button" class="btn ' + (sec === "FA" ? "btn-sky" : "btn-dark") + '" style="flex:1" onclick="openClinicInventoryModal(\'FA\', \'ledger\')">🩹 First-Aid Supplies Inventory</button>' +
+      '<button type="button" class="btn ' + (sec === "MED" ? "btn-green" : "btn-dark") + '" style="flex:1" onclick="openClinicInventoryModal(\'MED\', \'ledger\')">💊 Medicine Supplies Inventory</button>' +
+    '</div>' +
+    '<div style="display:flex;gap:8px;margin-bottom:10px">' +
+      '<button type="button" class="btn ' + (view === "ledger" ? "btn-sky" : "btn-dark") + '" style="flex:1;padding:5px;font-size:11px" onclick="openClinicInventoryModal(\'' + sec + '\', \'ledger\')">📋 Dispense / Inventory Ledger</button>' +
+      '<button type="button" class="btn ' + (view === "add" ? "btn-green" : "btn-dark") + '" style="flex:1;padding:5px;font-size:11px" onclick="openClinicInventoryModal(\'' + sec + '\', \'add\')">➕ Add ' + (sec === "FA" ? "FA Supplies" : "Medicine Supplies") + '</button>' +
+    '</div>';
+
+  if (sec === "FA" && view === "add") {
+    contentHtml +=
+      '<datalist id="faNameSuggestions">' + faNames.map(function(n) { return '<option value="' + n + '">'; }).join("") + '</datalist>' +
+      '<div class="grid-2">' +
+        '<div class="field"><label>Date</label><input id="fa_add_date" type="date" value="' + todayStr + '" /></div>' +
+        '<div class="field"><label>Item Name (Auto-Suggests Existing)</label><input id="fa_add_name" list="faNameSuggestions" placeholder="Type or pick existing FA item..." /></div>' +
+        '<div class="field"><label>Description</label><input id="fa_add_desc" placeholder="e.g., Antiseptic / Bandage" /></div>' +
+        '<div class="field"><label>Size / mL</label><input id="fa_add_size" placeholder="e.g., 120 mL / 4x4" /></div>' +
+      '</div>' +
+      '<div class="field"><label>Quantity to Add</label><input id="fa_add_qty" type="number" min="1" placeholder="Enter qty..." /></div>' +
+      '<button type="button" class="btn btn-green" style="width:100%;padding:9px" onclick="submitAddClinicStock(\'FA\')">Add / Submit to First-Aid Inventory</button>';
+  } else if (sec === "MED" && view === "add") {
+    contentHtml +=
+      '<datalist id="medNameSuggestions">' + medNames.map(function(n) { return '<option value="' + n + '">'; }).join("") + '</datalist>' +
+      '<div class="grid-2">' +
+        '<div class="field"><label>Date</label><input id="med_add_date" type="date" value="' + todayStr + '" /></div>' +
+        '<div class="field"><label>Type</label><select id="med_add_type"><option>Tablet</option><option>Capsule</option><option>Syrup / Liquid</option><option>Ointment / Cream</option><option>Drops</option></select></div>' +
+        '<div class="field"><label>Generic Name (Auto-Suggests Existing)</label><input id="med_add_name" list="medNameSuggestions" placeholder="Type or pick existing generic name..." /></div>' +
+        '<div class="field"><label>mg / Dosage Strength</label><input id="med_add_mg" placeholder="e.g., 500 mg" /></div>' +
+      '</div>' +
+      '<div class="field"><label>Quantity to Add</label><input id="med_add_qty" type="number" min="1" placeholder="Enter qty..." /></div>' +
+      '<button type="button" class="btn btn-green" style="width:100%;padding:9px" onclick="submitAddClinicStock(\'MED\')">Add / Submit to Medicine Inventory</button>';
+  } else {
+    const items = sec === "FA" ? clinicState.faItems : clinicState.medItems;
+    const col2 = sec === "FA" ? "Item Name" : "Generic Name";
+    const col3 = sec === "FA" ? "Description" : "Type";
+    const col4 = sec === "FA" ? "Size / mL" : "mg";
+
+    contentHtml +=
+      '<p style="font-size:10px;color:#94a3b8;margin-bottom:6px">Tip: Click the blue <strong>Dispensed Qty</strong> number on any row to view its synchronized patient dispensing log or dispense stock.</p>' +
+      '<table><thead><tr><th>Date</th><th>' + col2 + '</th><th>' + col3 + '</th><th>' + col4 + '</th><th>Dispensed Qty (Click)</th><th>Remaining Qty</th><th>Action</th></tr></thead><tbody>' +
+      items.map(function(it, idx) {
+        const remQty = (Number(it.added) || 0) - (Number(it.dispensed) || 0);
+        return '<tr>' +
+          '<td style="font-size:11px;color:#94a3b8">' + it.date + '</td>' +
+          '<td style="color:#fff;font-weight:700">' + it.name + '</td>' +
+          '<td>' + (sec === "FA" ? it.desc : it.type) + '</td>' +
+          '<td>' + (sec === "FA" ? it.size : it.mg) + '</td>' +
+          '<td><button type="button" class="btn btn-dark" style="padding:2px 8px;color:#38bdf8;font-weight:800" onclick="openDispenseHistoryModal(\'' + sec + '\', ' + idx + ')">' + it.dispensed + ' 📋</button></td>' +
+          '<td style="font-weight:800;color:' + (remQty <= 5 ? "#f87171" : "#34d399") + '">' + remQty + '</td>' +
+          '<td><button type="button" class="btn btn-sky" style="padding:2px 7px;font-size:10px" onclick="openDispenseFormModal(\'' + sec + '\', ' + idx + ')">Dispense</button></td>' +
+        '</tr>';
+      }).join("") +
+      '</tbody></table>';
+  }
+
+  document.getElementById("modalBody").innerHTML = contentHtml;
+  document.getElementById("entryModal").classList.add("open");
+}
+
+async function submitAddClinicStock(sec) {
+  if (sec === "FA") {
+    const dt = document.getElementById("fa_add_date").value;
+    const name = document.getElementById("fa_add_name").value.trim();
+    const desc = document.getElementById("fa_add_desc").value.trim();
+    const size = document.getElementById("fa_add_size").value.trim();
+    const qty = Number(document.getElementById("fa_add_qty").value) || 0;
+    if (!name || qty <= 0) return alert("Enter Item Name and Quantity.");
+
+    const existing = clinicState.faItems.find(function(i) { return i.name.toLowerCase() === name.toLowerCase() && (i.size || "").toLowerCase() === size.toLowerCase(); });
+    if (existing) {
+      existing.added += qty;
+      existing.date = dt;
+    } else {
+      clinicState.faItems.push({ date: dt, name: name, desc: desc, size: size, added: qty, dispensed: 0 });
+    }
+    saveClinicStateLocal();
+
+    if (sb && currentUser) {
+      await sb.from("hsse_logs").insert(new Array({
+        control_no: "MFI-DVO-HSSE-08-007",
+        module_code: "08",
+        report_name: "First-Aid Stock Added: " + name + " (+" + qty + ")",
+        depot_location: "Depot 1 & 2",
+        status: "Complied",
+        remarks: "FA_STOCK_ADD | Date: " + dt + " | Item: " + name + " | Desc: " + desc + " | Size: " + size + " | Added: " + qty,
+        submitted_by: currentUser.id
+      }));
+    }
+    openClinicInventoryModal("FA", "ledger");
+  } else {
+    const dt = document.getElementById("med_add_date").value;
+    const type = document.getElementById("med_add_type").value;
+    const name = document.getElementById("med_add_name").value.trim();
+    const mg = document.getElementById("med_add_mg").value.trim();
+    const qty = Number(document.getElementById("med_add_qty").value) || 0;
+    if (!name || qty <= 0) return alert("Enter Generic Name and Quantity.");
+
+    const existing = clinicState.medItems.find(function(i) { return i.name.toLowerCase() === name.toLowerCase() && (i.mg || "").toLowerCase() === mg.toLowerCase(); });
+    if (existing) {
+      existing.added += qty;
+      existing.date = dt;
+    } else {
+      clinicState.medItems.push({ date: dt, type: type, name: name, mg: mg, added: qty, dispensed: 0 });
+    }
+    saveClinicStateLocal();
+
+    if (sb && currentUser) {
+      await sb.from("hsse_logs").insert(new Array({
+        control_no: "MFI-DVO-HSSE-08-003",
+        module_code: "08",
+        report_name: "Medicine Stock Added: " + name + " " + mg + " (+" + qty + ")",
+        depot_location: "Depot 1 & 2",
+        status: "Complied",
+        remarks: "MED_STOCK_ADD | Date: " + dt + " | Type: " + type + " | Generic: " + name + " | mg: " + mg + " | Added: " + qty,
+        submitted_by: currentUser.id
+      }));
+    }
+    openClinicInventoryModal("MED", "ledger");
+  }
+}
+
+function openDispenseFormModal(sec, idx) {
+  const item = (sec === "FA" ? clinicState.faItems : clinicState.medItems).at(idx);
+  const todayStr = new Date().toISOString().slice(0, 10);
+  document.getElementById("modalTitle").textContent = "Dispense " + item.name + " (" + (sec === "FA" ? "First-Aid Case Sync" : "Medicine Dispense Sync") + ")";
+  document.getElementById("modalBody").innerHTML =
+    '<div class="grid-2">' +
+      '<div class="field"><label>Name of Personnel</label><input id="disp_person" placeholder="Employee / Contractor Name" /></div>' +
+      '<div class="field"><label>Date Dispensed</label><input id="disp_date" type="date" value="' + todayStr + '" /></div>' +
+      '<div class="field"><label>Case / Chief Complaint</label><input id="disp_case" placeholder="e.g., Minor abrasion / Headache" /></div>' +
+      '<div class="field"><label>Quantity Dispensed</label><input id="disp_qty" type="number" min="1" value="1" /></div>' +
+    '</div>' +
+    '<div class="field"><label>' + (sec === "FA" ? "FA Attendant Name" : "Medical Attendant / Nurse Name") + '</label><input id="disp_attendant" placeholder="Attendant Full Name" /></div>' +
+    '<div style="display:flex;gap:8px">' +
+      '<button type="button" class="btn btn-dark" style="flex:1" onclick="openClinicInventoryModal(\'' + sec + '\', \'ledger\')">Cancel</button>' +
+      '<button type="button" class="btn btn-green" style="flex:2" onclick="submitDispenseRecord(\'' + sec + '\', ' + idx + ')">Confirm Dispense &amp; Sync Registry</button>' +
+    '</div>';
+}
+
+async function submitDispenseRecord(sec, idx) {
+  const item = (sec === "FA" ? clinicState.faItems : clinicState.medItems).at(idx);
+  const person = document.getElementById("disp_person").value.trim();
+  const dt = document.getElementById("disp_date").value;
+  const caseTxt = document.getElementById("disp_case").value.trim();
+  const qty = Number(document.getElementById("disp_qty").value) || 0;
+  const attendant = document.getElementById("disp_attendant").value.trim();
+  if (!person || qty <= 0) return alert("Enter Name of Personnel and valid Quantity.");
+
+  item.dispensed = (Number(item.dispensed) || 0) + qty;
+  clinicState.transactions.unshift({
+    sec: sec,
+    itemName: item.name,
+    person: person,
+    date: dt,
+    caseTxt: caseTxt,
+    qty: qty,
+    attendant: attendant
+  });
+  saveClinicStateLocal();
+
+  const ctrlNo = sec === "FA" ? "MFI-DVO-HSSE-05-006" : "MFI-DVO-HSSE-08-003";
+  const modCode = sec === "FA" ? "05" : "08";
+  const remarks = (sec === "FA" ? "FA_DISPENSE" : "MED_DISPENSE") + " | Item: " + item.name + " | Qty: " + qty + " | Personnel: " + person + " | Date: " + dt + " | Case: " + caseTxt + " | Attendant: " + attendant;
+
+  if (sb && currentUser) {
+    await sb.from("hsse_logs").insert(new Array({
+      control_no: ctrlNo,
+      module_code: modCode,
+      report_name: (sec === "FA" ? "First-Aid Case & Supply Dispense: " : "Medicine Dispensed: ") + item.name + " (" + person + ")",
+      depot_location: "Depot 1 & 2",
+      status: "Complied",
+      remarks: remarks,
+      submitted_by: currentUser.id
+    }));
+  }
+
+  await syncLiveChartData();
+  openClinicInventoryModal(sec, "ledger");
+}
+
+function openDispenseHistoryModal(sec, idx) {
+  const item = (sec === "FA" ? clinicState.faItems : clinicState.medItems).at(idx);
+  const txList = clinicState.transactions.filter(function(t) { return t.sec === sec && t.itemName === item.name; });
+
+  document.getElementById("modalTitle").textContent = "📋 Dispensing Transactions — " + item.name;
+  document.getElementById("modalBody").innerHTML =
+    '<p style="font-size:11px;color:#38bdf8;margin-bottom:8px">Synchronized with ' + (sec === "FA" ? "First-Aid Case Module Registry (MFI-DVO-HSSE-05-006)" : "Medicine Module Registry (MFI-DVO-HSSE-08-003)") + '</p>' +
+    '<table><thead><tr><th>Date</th><th>Name of Personnel</th><th>Case</th><th>Qty Dispensed</th><th>' + (sec === "FA" ? "FA Attendant" : "Medical Attendant") + '</th></tr></thead><tbody>' +
+    (txList.length ? txList.map(function(t) {
+      return '<tr><td>' + t.date + '</td><td style="color:#fff;font-weight:700">' + t.person + '</td><td>' + t.caseTxt + '</td><td style="color:#38bdf8;font-weight:700">' + t.qty + '</td><td>' + t.attendant + '</td></tr>';
+    }).join("") : '<tr><td colspan="5" style="text-align:center;color:#64748b;padding:12px">No dispensing transactions recorded for this item yet.</td></tr>') +
+    '</tbody></table>' +
+    '<button type="button" class="btn btn-sky" style="margin-top:8px" onclick="openClinicInventoryModal(\'' + sec + '\', \'ledger\')">← Back to Inventory Ledger</button>';
+}
 </script>
 </body>
 </html>
