@@ -1255,17 +1255,21 @@ function renderExecDashboard() {
 }
 
 function openDailyManpowerModal() {
-  const todayStr = new Date().toISOString().slice(0, 10);
-  document.getElementById("modalTitle").textContent = "👷 Daily Contractor Manpower & Safe Man-Hours (8 Hrs/Day)";
+  const todayStr = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Manila" });
+  document.getElementById("modalTitle").textContent = "👷 Daily Contractor Manpower & Safe Man-Hours (8 Hrs/Day + OT)";
   document.getElementById("saveEntryBtn").style.display = "none";
 
   const rowsHtml = SUBJECT_VENDORS.map(function(v) {
     const isDone = todayEncodedVendors.includes(v);
     const curVal = hsseMetrics.manpower[v] !== undefined ? hsseMetrics.manpower[v] : "";
     const statusTag = isDone ? '<span class="pill-comp">Encoded Today</span>' : '<span class="pill-over">Not Yet Filled</span>';
-    return '<tr><td style="font-weight:700;color:#fff">' + v + '</td><td>' + statusTag + '</td>' +
-      '<td><input type="number" min="0" id="mp_in_' + v + '" value="' + curVal + '" placeholder="Enter pax..." oninput="recalcDailyManhoursPreview()" /></td>' +
-      '<td style="font-family:monospace;color:#38bdf8" id="mp_hrs_' + v + '">' + ((Number(curVal) || 0) * 8) + ' hrs</td></tr>';
+    return '<tr>' +
+      '<td style="font-weight:700;color:#fff">' + v + '</td>' +
+      '<td>' + statusTag + '</td>' +
+      '<td><input type="number" min="0" id="mp_in_' + v + '" value="' + curVal + '" placeholder="Pax..." oninput="recalcDailyManhoursPreview()" /></td>' +
+      '<td><input type="number" min="0" step="0.5" id="mp_ot_' + v + '" value="0" placeholder="OT hrs..." oninput="recalcDailyManhoursPreview()" /></td>' +
+      '<td style="font-family:monospace;color:#38bdf8" id="mp_hrs_' + v + '">' + ((Number(curVal) || 0) * 8) + ' hrs</td>' +
+    '</tr>';
   }).join("");
 
   document.getElementById("modalBody").innerHTML =
@@ -1274,10 +1278,10 @@ function openDailyManpowerModal() {
       '<div class="field"><label>Depot Location</label><select id="mp_loc"><option>Depot 1 &amp; 2</option><option>Depot 1</option><option>Depot 2</option></select></div>' +
     '</div>' +
     '<div id="mpMissingWarn" style="font-size:11px;padding:7px 10px;border-radius:6px;background:rgba(239,68,68,0.2);border:1px solid #ef4444;color:#fca5a5"></div>' +
-    '<table><thead><tr><th>Contractor / Vendor</th><th>Today Status</th><th>Headcount (Pax)</th><th>Man-Hours (× 8h)</th></tr></thead><tbody>' + rowsHtml + '</tbody></table>' +
+    '<table><thead><tr><th>Contractor / Vendor</th><th>Today Status</th><th>Headcount (Pax)</th><th>Overtime (OT Hrs)</th><th>Total Man-Hours</th></tr></thead><tbody>' + rowsHtml + '</tbody></table>' +
     '<div style="display:flex;justify-content:space-between;align-items:center;background:#020617;padding:10px;border:1px solid #1e293b;border-radius:6px">' +
-      '<span style="color:#cbd5e1">Total Pax: <strong id="mpTotalPax" style="color:#fff">0</strong></span>' +
-      '<span style="color:#38bdf8">Daily Man-Hours: <strong id="mpTotalHrs" style="font-size:14px">0</strong> hrs</span>' +
+      '<span style="color:#cbd5e1">Total Pax: <strong id="mpTotalPax" style="color:#fff">0</strong> | OT: <strong id="mpTotalOt" style="color:#fcd34d">0</strong> hrs</span>' +
+      '<span style="color:#38bdf8">Total Added: <strong id="mpTotalHrs" style="font-size:14px">0</strong> hrs</span>' +
       '<button type="button" class="btn btn-green" onclick="saveDailyManpowerLog()">Save &amp; Accumulate</button>' +
     '</div>';
 
@@ -1287,18 +1291,32 @@ function openDailyManpowerModal() {
 
 function recalcDailyManhoursPreview() {
   let totalPax = 0;
+  let totalOt = 0;
+  let grandHours = 0;
   const missing = new Array();
+
   SUBJECT_VENDORS.forEach(function(v) {
     const inp = document.getElementById("mp_in_" + v);
+    const otInp = document.getElementById("mp_ot_" + v);
     const raw = inp ? inp.value.trim() : "";
     if (raw === "") missing.push(v);
+
     const pax = Number(raw) || 0;
+    const ot = Number(otInp ? otInp.value : 0) || 0;
+    const rowHours = (pax * 8) + ot;
+
     totalPax += pax;
+    totalOt += ot;
+    grandHours += rowHours;
+
     const cell = document.getElementById("mp_hrs_" + v);
-    if (cell) cell.textContent = (pax * 8).toLocaleString() + " hrs";
+    if (cell) cell.textContent = rowHours.toLocaleString() + " hrs";
   });
+
   document.getElementById("mpTotalPax").textContent = totalPax;
-  document.getElementById("mpTotalHrs").textContent = (totalPax * 8).toLocaleString();
+  document.getElementById("mpTotalOt").textContent = totalOt.toLocaleString();
+  document.getElementById("mpTotalHrs").textContent = grandHours.toLocaleString();
+
   const warn = document.getElementById("mpMissingWarn");
   if (missing.length) {
     warn.style.display = "block";
@@ -1309,26 +1327,31 @@ function recalcDailyManhoursPreview() {
 }
 
 async function saveDailyManpowerLog() {
-  const shiftDate = document.getElementById("mp_date").value || new Date().toISOString().slice(0, 10);
+  const shiftDate = document.getElementById("mp_date").value || new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Manila" });
   const loc = document.getElementById("mp_loc").value;
   let totalPax = 0;
+  let totalOt = 0;
+  let dailyHours = 0;
   const breakdown = new Array();
   const missing = new Array();
 
   SUBJECT_VENDORS.forEach(function(v) {
     const raw = document.getElementById("mp_in_" + v).value.trim();
-    if (raw === "") missing.push(v);
-    else {
+    const ot = Number(document.getElementById("mp_ot_" + v).value) || 0;
+    if (raw === "") {
+      missing.push(v);
+    } else {
       const pax = Number(raw) || 0;
       totalPax += pax;
-      breakdown.push(v + ": " + pax);
+      totalOt += ot;
+      dailyHours += (pax * 8) + ot;
+      breakdown.push(v + ": " + pax + (ot > 0 ? " (+" + ot + "h OT)" : ""));
     }
   });
 
   if (missing.length > 0 && !confirm("Warning: " + missing.join(", ") + " have not been filled yet.\n\nClick OK to save partial count anyway, or Cancel to fill them in first.")) return;
 
-  const dailyHours = totalPax * 8;
-  const summaryText = "DATE=" + shiftDate + " | PAX=" + totalPax + " | HOURS=" + dailyHours + " | " + breakdown.join(" | ");
+  const summaryText = "DATE=" + shiftDate + " | PAX=" + totalPax + " | OT=" + totalOt + " | HOURS=" + dailyHours + " | " + breakdown.join(" | ");
 
   if (sb && currentUser) {
     const res = await sb.from("hsse_logs").insert(new Array({
@@ -1345,7 +1368,7 @@ async function saveDailyManpowerLog() {
 
   closeModal("entryModal");
   await syncLiveChartData();
-  alert("Saved " + totalPax + " pax (" + dailyHours.toLocaleString() + " Safe Man-Hours) for " + shiftDate + "!");
+  alert("Saved " + totalPax + " pax + " + totalOt + " OT hrs (" + dailyHours.toLocaleString() + " Total Safe Man-Hours) for " + shiftDate + "!");
 }
 
 async function togglePtwVendor(idx) {
