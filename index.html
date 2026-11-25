@@ -217,6 +217,7 @@
       <div class="toolbar">
         <input id="searchInput" style="width:300px" oninput="renderTable()" type="text" placeholder="Search Control No., Report Name, ISO/DOLE Ref..." />
         <div class="quick-btns" id="quickEntryBar" style="display:flex;gap:6px;flex-wrap:wrap">
+          <button type="button" class="btn btn-green" data-mod="12" onclick="openCountryGlobalModal()">+ Country Global Task</button>
           <button type="button" class="btn btn-sky" data-mod="08" onclick="openEntryModal('BP')">+ BP Monitoring</button>
           <button type="button" class="btn btn-sky" data-mod="04" onclick="openEntryModal('WSOR')">+ WSOR Walkthrough</button>
           <button type="button" class="btn btn-sky" data-mod="03" onclick="openEntryModal('JHA')">+ JHA Register</button>
@@ -719,11 +720,20 @@ function renderTable() {
   const locFilter = document.getElementById("globalDepotFilter").value;
   const allowedMods = ROLE_SCOPES[currentRole] || ["NONE"];
 
+    const statusRank = { "URGENT": 1, "Due Soon": 2, "Complied": 3 };
+  const freqRank = { "Daily": 1, "Per Shift": 1, "Per Task": 2, "Per Activity": 2, "Per Incident": 2, "Weekly": 3, "Monthly": 4, "Quarterly": 5, "Semi-Annual": 6, "Annual": 7 };
+
   const filtered = registers.filter(function(r) {
     if (activeModule !== "ALL" && r.module !== activeModule) return false;
     if (urgentOnly && r.status !== "URGENT") return false;
     if (locFilter !== "ALL" && !r.location.includes(locFilter) && r.location !== "Depot 1 & 2") return false;
     return (r.code + " " + r.name + " " + r.ref + " " + r.module).toLowerCase().includes(q);
+  }).sort(function(a, b) {
+    const sDiff = (statusRank[a.status] || 9) - (statusRank[b.status] || 9);
+    if (sDiff !== 0) return sDiff;
+    const fA = Object.keys(freqRank).find(function(k) { return (a.freq || "").includes(k); });
+    const fB = Object.keys(freqRank).find(function(k) { return (b.freq || "").includes(k); });
+    return (freqRank[fA] || 9) - (freqRank[fB] || 9);
   });
 
   document.getElementById("statTotal").textContent = registers.length;
@@ -1101,11 +1111,15 @@ function renderExecDashboard() {
       '<td style="text-align:right"><span class="' + cls + '">' + s.status + '</span></td></tr>';
   }).join("");
 
-  document.getElementById("ptwVendorBody").innerHTML = hsseMetrics.ptwVendors.map(function(v, i) {
+    document.getElementById("ptwVendorBody").innerHTML = hsseMetrics.ptwVendors.map(function(v, i) {
     const cls = v.status === "Compliant" ? "pill-comp" : "pill-over";
-    return '<tr><td style="color:#fff;font-weight:600">' + v.name + '</td>' +
-      '<td style="text-align:right"><span class="' + cls + '" style="cursor:pointer" onclick="togglePtwVendor(' + i + ')">' + v.status + '</span></td></tr>';
+    return '<tr>' +
+      '<td style="color:#fff;font-weight:600">' + v.name + '</td>' +
+      '<td style="text-align:right"><span class="' + cls + '">' + v.status + '</span></td>' +
+      '<td style="text-align:right"><button type="button" class="btn btn-sky" style="padding:2px 7px;font-size:10px" onclick="openVendorPtwModal(\'' + v.name + '\', ' + i + ')">Upload PTW</button></td>' +
+    '</tr>';
   }).join("");
+
   document.getElementById("ktcJoCount").textContent = hsseMetrics.ktcRescueCount;
   document.getElementById("kodusJoCount").textContent = hsseMetrics.kodusRescueCount;
 
@@ -1292,6 +1306,277 @@ function openLeadingModal() { alert("Leading % bars auto-calculate directly from
 
 syncLiveChartData();
 
+// ============================================================
+// 1. COUNTRY GLOBAL TASK MODAL (SUBMIT TASK + COMPLY TASK)
+// ============================================================
+function openCountryGlobalModal(defaultTab) {
+  const mode = defaultTab || "submit";
+  const todayStr = new Date().toISOString().slice(0, 10);
+  document.getElementById("modalTitle").textContent = "🌐 Country Global Task — Submit & Comply Tracker";
+  document.getElementById("saveEntryBtn").style.display = "none";
+
+  document.getElementById("modalBody").innerHTML =
+    '<div style="display:flex;gap:8px;margin-bottom:8px;background:#020617;padding:4px;border-radius:6px">' +
+      '<button type="button" class="btn ' + (mode === "submit" ? "btn-sky" : "btn-dark") + '" style="flex:1" onclick="openCountryGlobalModal(\'submit\')">1. Submit Task</button>' +
+      '<button type="button" class="btn ' + (mode === "comply" ? "btn-green" : "btn-dark") + '" style="flex:1" onclick="openCountryGlobalModal(\'comply\')">2. Comply Task</button>' +
+    '</div>' +
+    (mode === "submit" ? (
+      '<div class="grid-2">' +
+        '<div class="field"><label>Country Event No.</label><input id="cgt_event" placeholder="e.g., 12345678" /></div>' +
+        '<div class="field"><label>Item No.</label><input id="cgt_item" placeholder="e.g., 1" /></div>' +
+      '</div>' +
+      '<div class="field"><label>Description</label><textarea id="cgt_desc" rows="2" placeholder="Describe the Country Global Task requirement..."></textarea></div>' +
+      '<div class="field"><label>Action To Take</label><textarea id="cgt_action" rows="2" placeholder="Required corrective or preventive action..."></textarea></div>' +
+      '<div class="grid-2">' +
+        '<div class="field"><label>Due Date</label><input id="cgt_due" type="date" value="' + todayStr + '" /></div>' +
+        '<div class="field"><label>Assigned Location</label><select id="cgt_loc"><option>Depot 1</option><option>Depot 2</option><option>Depot 1 &amp; 2</option></select></div>' +
+      '</div>' +
+      '<button type="button" class="btn btn-sky" style="width:100%;padding:9px" onclick="saveCountryGlobalSubmit()">Submit &amp; Store Task</button>'
+    ) : (
+      '<div class="grid-2">' +
+        '<div class="field"><label>Country Event No. + Item No. (e.g., 12345678-1)</label><input id="cgt_ref_key" placeholder="12345678-1" /></div>' +
+        '<div class="field"><label>Assignee Location</label><select id="cgt_comp_loc"><option>Depot 1</option><option>Depot 2</option><option>Depot 1 &amp; 2</option></select></div>' +
+      '</div>' +
+      '<div class="field"><label>Action Taken Description</label><textarea id="cgt_comp_desc" rows="2" placeholder="Detail the completed action taken..."></textarea></div>' +
+      '<div class="grid-2">' +
+        '<div class="field"><label>Date Complied</label><input id="cgt_comp_date" type="date" value="' + todayStr + '" /></div>' +
+        '<div class="field"><label>Action Taker (Full Name)</label><input id="cgt_taker" placeholder="Full Name" /></div>' +
+      '</div>' +
+      '<div class="field"><label>Evidence / Photo / All Files Upload</label><input id="cgt_file" type="file" accept=".pdf,.png,.jpg,.jpeg,.xlsx,.docx" /></div>' +
+      '<button type="button" class="btn btn-green" style="width:100%;padding:9px" onclick="saveCountryGlobalComply()">Submit Compliance &amp; Mark COMPLIANT</button>'
+    ));
+
+  document.getElementById("entryModal").classList.add("open");
+}
+
+async function saveCountryGlobalSubmit() {
+  const ev = document.getElementById("cgt_event").value.trim();
+  const itm = document.getElementById("cgt_item").value.trim();
+  const desc = document.getElementById("cgt_desc").value.trim();
+  const act = document.getElementById("cgt_action").value.trim();
+  const due = document.getElementById("cgt_due").value;
+  const loc = document.getElementById("cgt_loc").value;
+  if (!ev || !itm) return alert("Please enter both Country Event No. and Item No.");
+
+  const refKey = ev + "-" + itm;
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const autoTag = (due && due < todayStr) ? "OVERDUE (Red)" : "DUE SOON (Orange)";
+  const dbStatus = (due && due < todayStr) ? "URGENT" : "Due Soon";
+
+  const remarks = "CGT_KEY=" + refKey + " | STATUS_TAG=" + autoTag + " | Due Date: " + due + " | Desc: " + desc + " | Action To Take: " + act;
+  if (sb && currentUser) {
+    const res = await sb.from("hsse_logs").insert(new Array({
+      control_no: "MFI-DVO-HSSE-12-002",
+      module_code: "12",
+      report_name: "Country Global Task [" + refKey + "] — " + autoTag,
+      depot_location: loc,
+      status: dbStatus,
+      remarks: remarks,
+      submitted_by: currentUser.id
+    }));
+    if (res.error) return alert("Save error: " + res.error.message);
+  }
+  closeModal("entryModal");
+  await syncLiveChartData();
+  alert("Country Global Task " + refKey + " submitted (" + autoTag + ") and stored in system folder!");
+}
+
+async function saveCountryGlobalComply() {
+  const refKey = document.getElementById("cgt_ref_key").value.trim();
+  const loc = document.getElementById("cgt_comp_loc").value;
+  const compDesc = document.getElementById("cgt_comp_desc").value.trim();
+  const compDate = document.getElementById("cgt_comp_date").value;
+  const taker = document.getElementById("cgt_taker").value.trim();
+  if (!refKey) return alert("Please enter Country Event No. + Item No. (e.g., 12345678-1).");
+
+  let fileUrl = "";
+  const fInp = document.getElementById("cgt_file");
+  if (fInp && fInp.files && fInp.files.length > 0 && sb) {
+    const f = fInp.files.item(0);
+    const path = "12/CGT_" + refKey + "_" + Date.now() + "_" + f.name;
+    const up = await sb.storage.from("hsse-evidence").upload(path, f);
+    if (!up.error) fileUrl = sb.storage.from("hsse-evidence").getPublicUrl(path).data.publicUrl;
+  }
+
+  let prevData = "";
+  if (sb) {
+    const prev = await sb.from("hsse_logs").select("remarks").ilike("remarks", "%CGT_KEY=" + refKey + "%").order("created_at", { ascending: true }).limit(1);
+    if (prev.data && prev.data.length) prevData = " || ORIGINAL TASK: " + prev.data.at(0).remarks;
+  }
+
+  const mergedRemarks = "CGT_KEY=" + refKey + " | STATUS_TAG=COMPLIANT (Green) | Date Complied: " + compDate + " | Action Taker: " + taker + " | Action Taken: " + compDesc + prevData;
+  if (sb && currentUser) {
+    const res = await sb.from("hsse_logs").insert(new Array({
+      control_no: "MFI-DVO-HSSE-12-002",
+      module_code: "12",
+      report_name: "Country Global Task [" + refKey + "] — COMPLIANT",
+      depot_location: loc,
+      status: "Complied",
+      file_url: fileUrl,
+      remarks: mergedRemarks,
+      submitted_by: currentUser.id
+    }));
+    if (res.error) return alert("Save error: " + res.error.message);
+  }
+  closeModal("entryModal");
+  await syncLiveChartData();
+  alert("Country Global Task " + refKey + " merged & marked COMPLIANT (Green)!");
+}
+
+// ============================================================
+// 2. FULL 16-COLUMN WSOR WALKTHROUGH FORM (SHORTCUT BUTTON)
+// ============================================================
+function openEntryModal(formType) {
+  if (formType === "WSOR") return openFullWsorModal();
+  const mapCode = { BP: "MFI-DVO-HSSE-08-005", JHA: "MFI-DVO-HSSE-03-002", TBT: "MFI-DVO-HSSE-08-016", FIRE: "MFI-DVO-HSSE-09-001", MANPOWER: "MFI-DVO-HSSE-06-001" };
+  openUpdateModal(mapCode[formType], currentRole === "safety_officer");
+}
+
+function openFullWsorModal() {
+  const todayStr = new Date().toISOString().slice(0, 10);
+  document.getElementById("modalTitle").textContent = "📋 HSSE Walkthrough Observation Report (WSOR) — Full Entry";
+  document.getElementById("saveEntryBtn").style.display = "none";
+
+  document.getElementById("modalBody").innerHTML =
+    '<div class="grid-2">' +
+      '<div class="field"><label>WSOR No.</label><input id="w_no" value="WSOR-' + Date.now().toString().slice(-6) + '" /></div>' +
+      '<div class="field"><label>Date Inspected</label><input id="w_date" type="date" value="' + todayStr + '" /></div>' +
+      '<div class="field"><label>Area Location</label><select id="w_area"><option>Depot 1 - Container Yard</option><option>Depot 2 - Container Yard</option><option>Workshop / Repair Area</option><option>Reefer Area</option><option>Washing Bay</option><option>Gate / Office / Canteen</option></select></div>' +
+      '<div class="field"><label>Inspected By</label><input id="w_by" placeholder="Inspector Full Name" /></div>' +
+      '<div class="field"><label>Vendor</label><select id="w_vendor"><option>PBCS</option><option>G-FORTUNE</option><option>MRAY</option><option>RMS</option><option>KTC</option><option>KODUS</option><option>SHIELDS</option><option>MAERSK</option></select></div>' +
+      '<div class="field"><label>Responsible Person</label><input id="w_resp" placeholder="Vendor Supervisor / PIC" /></div>' +
+    '</div>' +
+    '<div class="field"><label>Findings / Observation</label><textarea id="w_find" rows="2" placeholder="Describe unsafe act, unsafe condition, or observation..."></textarea></div>' +
+    '<div class="field"><label>Evidential Photo (Findings / Observation)</label><input id="w_photo_find" type="file" accept="image/*,.pdf" /></div>' +
+    '<div class="grid-2">' +
+      '<div class="field"><label>Recommendation / Action Plan Required</label><input id="w_rec" placeholder="Corrective action required..." /></div>' +
+      '<div class="field"><label>Timeline (Target Date)</label><input id="w_time" type="date" value="' + todayStr + '" /></div>' +
+      '<div class="field"><label>Status</label><select id="w_stat"><option value="OPEN">OPEN</option><option value="CLOSED">CLOSED</option></select></div>' +
+      '<div class="field"><label>Remarks</label><select id="w_rem_tag"><option value="Due Soon">Due Soon</option><option value="Overdue">Overdue</option><option value="Compliant">Compliant</option></select></div>' +
+      '<div class="field"><label>Date Complied (If Closed)</label><input id="w_comp_date" type="date" /></div>' +
+      '<div class="field"><label>Duration (Days)</label><input id="w_dur" type="number" placeholder="0" /></div>' +
+    '</div>' +
+    '<div class="field"><label>Action Taken Description</label><textarea id="w_act_taken" rows="2" placeholder="Describe action taken to close finding..."></textarea></div>' +
+    '<div class="field"><label>Evidential Photo (Action Taken)</label><input id="w_photo_act" type="file" accept="image/*,.pdf" /></div>' +
+    '<button type="button" class="btn btn-sky" style="width:100%;padding:9px" onclick="saveFullWsorRecord()">Save &amp; Archive WSOR Record</button>';
+
+  document.getElementById("entryModal").classList.add("open");
+}
+
+async function saveFullWsorRecord() {
+  const wNo = document.getElementById("w_no").value.trim();
+  const wStat = document.getElementById("w_stat").value;
+  const wRemTag = document.getElementById("w_rem_tag").value;
+  let fileLinks = new Array();
+
+  const f1 = document.getElementById("w_photo_find");
+  if (f1 && f1.files && f1.files.length > 0 && sb) {
+    const file = f1.files.item(0);
+    const p1 = "04/WSOR_" + wNo + "_FINDING_" + Date.now() + "_" + file.name;
+    const u1 = await sb.storage.from("hsse-evidence").upload(p1, file);
+    if (!u1.error) fileLinks.push(sb.storage.from("hsse-evidence").getPublicUrl(p1).data.publicUrl);
+  }
+  const f2 = document.getElementById("w_photo_act");
+  if (f2 && f2.files && f2.files.length > 0 && sb) {
+    const file = f2.files.item(0);
+    const p2 = "04/WSOR_" + wNo + "_ACTION_" + Date.now() + "_" + file.name;
+    const u2 = await sb.storage.from("hsse-evidence").upload(p2, file);
+    if (!u2.error) fileLinks.push(sb.storage.from("hsse-evidence").getPublicUrl(p2).data.publicUrl);
+  }
+
+  const fullSummary = [
+    "WSOR No: " + wNo,
+    "Date Inspected: " + document.getElementById("w_date").value,
+    "Area: " + document.getElementById("w_area").value,
+    "Inspected By: " + document.getElementById("w_by").value,
+    "Vendor: " + document.getElementById("w_vendor").value,
+    "Responsible: " + document.getElementById("w_resp").value,
+    "Findings: " + document.getElementById("w_find").value,
+    "Recommendation: " + document.getElementById("w_rec").value,
+    "Timeline: " + document.getElementById("w_time").value,
+    "Status: " + wStat,
+    "Action Taken: " + document.getElementById("w_act_taken").value,
+    "Date Complied: " + (document.getElementById("w_comp_date").value || "Pending"),
+    "Duration: " + (document.getElementById("w_dur").value || "0") + " days",
+    "Remarks: " + wRemTag
+  ].join(" | ");
+
+  const mappedStatus = (wStat === "CLOSED" || wRemTag === "Compliant") ? "Complied" : (wRemTag === "Overdue" ? "URGENT" : "Due Soon");
+  if (sb && currentUser) {
+    const res = await sb.from("hsse_logs").insert(new Array({
+      control_no: "MFI-DVO-HSSE-04-002",
+      module_code: "04",
+      report_name: "WSOR Walkthrough [" + wNo + "] — " + document.getElementById("w_vendor").value,
+      depot_location: document.getElementById("w_area").value.includes("Depot 2") ? "Depot 2" : "Depot 1",
+      status: mappedStatus,
+      file_url: fileLinks.at(0) || "",
+      remarks: fullSummary,
+      submitted_by: currentUser.id
+    }));
+    if (res.error) return alert("Save error: " + res.error.message);
+  }
+  closeModal("entryModal");
+  await syncLogsFromSupabase();
+  await syncLiveChartData();
+  renderTable();
+  alert("WSOR " + wNo + " saved with all details & evidence photos!");
+}
+
+// ============================================================
+// 3. MONDAY PTW VENDOR UPLOAD MODAL (AUTO-SERIES & PTW FOLDER)
+// ============================================================
+function openVendorPtwModal(vendorName, idx) {
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const autoSeries = "MFI-DVO-HSSE-03-011-PTW-" + vendorName + "-" + todayStr.replace(/-/g, "");
+  document.getElementById("modalTitle").textContent = "📋 Upload Monday PTW — " + vendorName;
+  document.getElementById("saveEntryBtn").style.display = "none";
+
+  document.getElementById("modalBody").innerHTML =
+    '<div class="field"><label>PTW Control Series Number (Auto-Generated)</label><input id="ptw_series" value="' + autoSeries + '" readonly style="color:#38bdf8;font-family:monospace" /></div>' +
+    '<div class="grid-2">' +
+      '<div class="field"><label>PTW Date</label><input id="ptw_date" type="date" value="' + todayStr + '" /></div>' +
+      '<div class="field"><label>Depot Location</label><select id="ptw_loc"><option>Depot 1 &amp; 2</option><option>Depot 1</option><option>Depot 2</option></select></div>' +
+    '</div>' +
+    '<div class="field"><label>Upload PTW File (PDF or Photo)</label><input id="ptw_file" type="file" accept=".pdf,image/*" /></div>' +
+    '<button type="button" class="btn btn-green" style="width:100%;padding:9px" onclick="submitVendorPtwUpload(\'' + vendorName + '\', ' + idx + ')">Submit PTW &amp; Update Chart</button>';
+
+  document.getElementById("entryModal").classList.add("open");
+}
+
+async function submitVendorPtwUpload(vendorName, idx) {
+  const series = document.getElementById("ptw_series").value;
+  const ptwDate = document.getElementById("ptw_date").value;
+  const loc = document.getElementById("ptw_loc").value;
+  const fInp = document.getElementById("ptw_file");
+
+  let fileUrl = "";
+  if (fInp && fInp.files && fInp.files.length > 0 && sb) {
+    const f = fInp.files.item(0);
+    const ptwFolderPath = "03/PTW/" + series + "_" + Date.now() + "_" + f.name;
+    const up = await sb.storage.from("hsse-evidence").upload(ptwFolderPath, f);
+    if (up.error) return alert("Upload error: " + up.error.message);
+    fileUrl = sb.storage.from("hsse-evidence").getPublicUrl(ptwFolderPath).data.publicUrl;
+  }
+
+  hsseMetrics.ptwVendors.at(idx).status = "Compliant";
+  if (sb && currentUser) {
+    const res = await sb.from("hsse_logs").insert(new Array({
+      control_no: "MFI-DVO-HSSE-03-011",
+      module_code: "03",
+      report_name: "Monday PTW Upload — " + vendorName + " (" + series + ")",
+      depot_location: loc,
+      status: "Complied",
+      file_url: fileUrl,
+      remarks: vendorName + ": COMPLIANT | Date: " + ptwDate + " | Control Series: " + series,
+      submitted_by: currentUser.id
+    }));
+    if (res.error) return alert("Save error: " + res.error.message);
+  }
+
+  closeModal("entryModal");
+  await syncLiveChartData();
+  alert("PTW for " + vendorName + " stored in PTW folder (" + series + ") and chart updated to Compliant!");
+}
 
 </script>
 </body>
