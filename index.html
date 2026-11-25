@@ -103,7 +103,22 @@
     .pill-comp { background: #059669; color: #fff; padding: 2px 7px; border-radius: 10px; font-size: 10px; font-weight: 700; }
     .pill-pend { background: #d97706; color: #fff; padding: 2px 7px; border-radius: 10px; font-size: 10px; font-weight: 700; }
     .pill-over { background: #dc2626; color: #fff; padding: 2px 7px; border-radius: 10px; font-size: 10px; font-weight: 700; }
-
+    /* Left Sidebar HSSE Calendar & Approaching Reminders */
+    .side-cal-wrap { border-top: 1px solid #1e293b; padding: 10px; display: flex; flex-direction: column; gap: 8px; flex: 1; min-height: 250px; overflow-y: auto; }
+    .cal-head { display: flex; justify-content: space-between; align-items: center; font-size: 11px; font-weight: 700; color: #38bdf8; }
+    .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; text-align: center; font-size: 10px; }
+    .cal-dow { color: #64748b; font-weight: 700; padding: 2px 0; }
+    .cal-day { padding: 4px 0; border-radius: 4px; background: #020617; color: #cbd5e1; cursor: pointer; position: relative; border: 1px solid transparent; }
+    .cal-day:hover { border-color: #38bdf8; }
+    .cal-day.today { border-color: #38bdf8; font-weight: 800; color: #fff; background: #0c4a6e; }
+    .cal-day.has-urgent::after { content: ""; position: absolute; bottom: 1px; left: 50%; transform: translateX(-50%); width: 4px; height: 4px; border-radius: 50%; background: #ef4444; }
+    .cal-day.has-soon::after { content: ""; position: absolute; bottom: 1px; left: 50%; transform: translateX(-50%); width: 4px; height: 4px; border-radius: 50%; background: #f59e0b; }
+    .cal-day.has-ok::after { content: ""; position: absolute; bottom: 1px; left: 50%; transform: translateX(-50%); width: 4px; height: 4px; border-radius: 50%; background: #10b981; }
+    .rem-box { background: #020617; border: 1px solid #1e293b; border-radius: 6px; padding: 7px; flex: 1; overflow-y: auto; }
+    .rem-title { font-size: 10px; font-weight: 800; color: #fcd34d; text-transform: uppercase; margin-bottom: 5px; display: flex; justify-content: space-between; }
+    .rem-item { font-size: 10px; padding: 4px 6px; border-radius: 4px; margin-bottom: 4px; background: #0f172a; border-left: 3px solid #f59e0b; color: #e2e8f0; line-height: 1.3; }
+    .rem-item.urgent { border-left-color: #ef4444; background: rgba(239,68,68,0.12); }
+    .rem-item.ok { border-left-color: #10b981; }
     @media print {
       body * { visibility: hidden; }
       #printArea, #printArea * { visibility: visible; }
@@ -205,6 +220,21 @@
   <div class="workspace">
     <aside>
       <div class="nav-list" id="moduleNav"></div>
+            <div class="side-cal-wrap">
+        <div class="cal-head">
+          <span id="calMonthTitle">📅 HSSE CALENDAR</span>
+          <div style="display:flex;gap:4px">
+            <button type="button" class="btn btn-dark" style="padding:1px 6px;font-size:10px" onclick="shiftCalMonth(-1)">◀</button>
+            <button type="button" class="btn btn-dark" style="padding:1px 6px;font-size:10px" onclick="shiftCalMonth(1)">▶</button>
+            <button type="button" class="btn btn-sky" style="padding:1px 6px;font-size:10px" onclick="openAddEventModal()">+ Event</button>
+          </div>
+        </div>
+        <div class="cal-grid" id="hsseCalGrid"></div>
+        <div class="rem-box">
+          <div class="rem-title"><span>⏰ Approaching &amp; Due Soon</span><span id="remCountBadge">0</span></div>
+          <div id="approachingRemindersList"></div>
+        </div>
+      </div>
       <div class="sidebar-stats">
         <div class="stat-row"><span>Logged In:</span><strong style="color:#fff" id="statUser">-</strong></div>
         <div class="stat-row"><span>Total Registers:</span><strong style="color:#fff" id="statTotal">0</strong></div>
@@ -1065,7 +1095,7 @@ async function syncLiveChartData() {
       banner.textContent = "✅ All 7 Subject Contractors Encoded for " + todayStr;
     }
   }
-
+buildSyncedEventsList(logs);
   renderExecDashboard();
 }
 
@@ -1577,6 +1607,180 @@ async function submitVendorPtwUpload(vendorName, idx) {
   await syncLiveChartData();
   alert("PTW for " + vendorName + " stored in PTW folder (" + series + ") and chart updated to Compliant!");
 }
+// ============================================================
+// 4. ALL-EVENTS HSSE CALENDAR & APPROACHING REMINDERS (SYNCED)
+// ============================================================
+let calViewDate = new Date();
+let allSyncedEvents = new Array();
+
+function shiftCalMonth(delta) {
+  calViewDate = new Date(calViewDate.getFullYear(), calViewDate.getMonth() + delta, 1);
+  renderHsseCalendar();
+}
+
+function buildSyncedEventsList(logs) {
+  const events = new Array();
+  const now = new Date();
+  const y = now.getFullYear();
+  const mStr = String(now.getMonth() + 1).padStart(2, "0");
+
+  events.push({ date: y + "-" + mStr + "-20", title: "DOLE WAIR Monthly Submission Due", type: "urgent" });
+  events.push({ date: y + "-" + mStr + "-28", title: "Monthly HSC Meeting & Comprehensive Inspection", type: "soon" });
+  events.push({ date: y + "-01-30", title: "DOLE AEDR Annual Exposure Report Due", type: "soon" });
+  events.push({ date: y + "-03-31", title: "DOLE AMR Annual Medical Report Due", type: "soon" });
+
+  const closedKeys = new Array();
+  logs.forEach(function(row) {
+    const rem = row.remarks || "";
+    if (rem.includes("STATUS_TAG=COMPLIANT") || row.status === "Complied") {
+      const k = rem.match(/CGT_KEY=([^\s|]+)/);
+      if (k && k.at(1)) closedKeys.push(k.at(1));
+    }
+  });
+
+  logs.forEach(function(row) {
+    const rem = row.remarks || "";
+    const cgtDue = rem.match(/Due Date:\s*(\d{4}-\d{2}-\d{2})/);
+    const cgtKey = rem.match(/CGT_KEY=([^\s|]+)/);
+    if (cgtDue && cgtDue.at(1)) {
+      const key = cgtKey ? cgtKey.at(1) : "Task";
+      const isDone = closedKeys.includes(key) || row.status === "Complied";
+      events.push({
+        date: cgtDue.at(1),
+        title: "CGT [" + key + "]: " + (row.report_name || "Global Task"),
+        type: isDone ? "ok" : (cgtDue.at(1) < now.toISOString().slice(0, 10) ? "urgent" : "soon")
+      });
+    }
+    const wsorTime = rem.match(/Timeline:\s*(\d{4}-\d{2}-\d{2})/);
+    if (wsorTime && wsorTime.at(1)) {
+      events.push({
+        date: wsorTime.at(1),
+        title: row.report_name || "WSOR Action Timeline",
+        type: row.status === "Complied" ? "ok" : "soon"
+      });
+    }
+    const calDate = rem.match(/CAL_EVENT_DATE=(\d{4}-\d{2}-\d{2})/);
+    if (calDate && calDate.at(1)) {
+      events.push({
+        date: calDate.at(1),
+        title: row.report_name || "Scheduled HSSE Event",
+        type: row.status === "URGENT" ? "urgent" : (row.status === "Complied" ? "ok" : "soon")
+      });
+    }
+  });
+
+  allSyncedEvents = events;
+  renderHsseCalendar();
+}
+
+function renderHsseCalendar() {
+  const grid = document.getElementById("hsseCalGrid");
+  const titleEl = document.getElementById("calMonthTitle");
+  const remListEl = document.getElementById("approachingRemindersList");
+  const remBadgeEl = document.getElementById("remCountBadge");
+  if (!grid || !titleEl) return;
+
+  const year = calViewDate.getFullYear();
+  const month = calViewDate.getMonth();
+  const monthNames = new Array("JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC");
+  titleEl.textContent = "📅 " + monthNames.at(month) + " " + year + " EVENTS";
+
+  const firstDay = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const todayStr = new Date().toISOString().slice(0, 10);
+
+  let html = new Array("S","M","T","W","T","F","S").map(function(d) {
+    return '<div class="cal-dow">' + d + '</div>';
+  }).join("");
+
+  for (let i = 0; i < firstDay; i++) {
+    html += '<div></div>';
+  }
+
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dStr = year + "-" + String(month + 1).padStart(2, "0") + "-" + String(d).padStart(2, "0");
+    const dayEvs = allSyncedEvents.filter(function(e) { return e.date === dStr; });
+    let dotClass = "";
+    if (dayEvs.some(function(e) { return e.type === "urgent"; })) dotClass = "has-urgent";
+    else if (dayEvs.some(function(e) { return e.type === "soon"; })) dotClass = "has-soon";
+    else if (dayEvs.some(function(e) { return e.type === "ok"; })) dotClass = "has-ok";
+
+    const isToday = dStr === todayStr ? "today" : "";
+    html += '<div class="cal-day ' + isToday + ' ' + dotClass + '" onclick="showDayEvents(\'' + dStr + '\')">' + d + '</div>';
+  }
+  grid.innerHTML = html;
+
+  const upcoming = new Array();
+  allSyncedEvents.forEach(function(e) {
+    if (e.type !== "ok") {
+      upcoming.push({ label: e.date + " • " + e.title, urgent: e.type === "urgent" });
+    }
+  });
+  registers.forEach(function(r) {
+    if (r.status === "URGENT" || r.status === "Due Soon") {
+      upcoming.push({ label: "[" + r.status + "] " + r.name + " (" + r.freq + ")", urgent: r.status === "URGENT" });
+    }
+  });
+
+  if (remBadgeEl) remBadgeEl.textContent = upcoming.length;
+  if (remListEl) {
+    remListEl.innerHTML = upcoming.slice(0, 12).map(function(u) {
+      return '<div class="rem-item ' + (u.urgent ? "urgent" : "") + '">' + u.label + '</div>';
+    }).join("") || '<div class="rem-item ok">✅ All scheduled events complied!</div>';
+  }
+}
+
+function showDayEvents(dateStr) {
+  const dayEvs = allSyncedEvents.filter(function(e) { return e.date === dateStr; });
+  if (!dayEvs.length) {
+    if (confirm("No HSSE events scheduled on " + dateStr + ".\n\nWould you like to add a new event on this date?")) {
+      openAddEventModal(dateStr);
+    }
+    return;
+  }
+  alert("📅 HSSE Events for " + dateStr + ":\n\n" + dayEvs.map(function(e) { return "• [" + e.type.toUpperCase() + "] " + e.title; }).join("\n"));
+}
+
+function openAddEventModal(prefillDate) {
+  const dStr = prefillDate || new Date().toISOString().slice(0, 10);
+  document.getElementById("modalTitle").textContent = "📅 Schedule HSSE Calendar Event / Drill / Audit";
+  document.getElementById("saveEntryBtn").style.display = "none";
+  document.getElementById("modalBody").innerHTML =
+    '<div class="grid-2">' +
+      '<div class="field"><label>Event Date</label><input id="ev_date" type="date" value="' + dStr + '" /></div>' +
+      '<div class="field"><label>Priority / Status</label><select id="ev_type"><option value="Due Soon">Approaching / Due Soon</option><option value="URGENT">Critical / Statutory Deadline</option><option value="Complied">Completed / Complied</option></select></div>' +
+    '</div>' +
+    '<div class="field"><label>Event / Activity Title</label><input id="ev_title" placeholder="e.g., Semi-Annual Fire & Evacuation Drill / BFP Inspection" /></div>' +
+    '<div class="field"><label>Depot Location</label><select id="ev_loc"><option>Depot 1 &amp; 2</option><option>Depot 1</option><option>Depot 2</option></select></div>' +
+    '<button type="button" class="btn btn-sky" style="width:100%;padding:9px" onclick="saveNewCalEvent()">Save to Synchronized HSSE Calendar</button>';
+  document.getElementById("entryModal").classList.add("open");
+}
+
+async function saveNewCalEvent() {
+  const d = document.getElementById("ev_date").value;
+  const st = document.getElementById("ev_type").value;
+  const t = document.getElementById("ev_title").value.trim();
+  const loc = document.getElementById("ev_loc").value;
+  if (!d || !t) return alert("Please enter both Event Date and Title.");
+
+  if (sb && currentUser) {
+    const res = await sb.from("hsse_logs").insert(new Array({
+      control_no: "MFI-DVO-HSSE-01-012",
+      module_code: "01",
+      report_name: t,
+      depot_location: loc,
+      status: st,
+      remarks: "CAL_EVENT_DATE=" + d + " | Scheduled HSSE Calendar Event",
+      submitted_by: currentUser.id
+    }));
+    if (res.error) return alert("Save error: " + res.error.message);
+  }
+  closeModal("entryModal");
+  await syncLiveChartData();
+  alert("Event '" + t + "' added to the synchronized HSSE Calendar for " + d + "!");
+}
+
+buildSyncedEventsList(new Array());
 
 </script>
 </body>
