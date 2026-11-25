@@ -2489,6 +2489,58 @@ async function eraseAllEntriesToZero() {
   renderTable();
   alert("✅ All entries erased! Your portal is now at ZERO reports and ready for official operations.");
 }
+// ============================================================
+// 9. UNIFIED SEQUENTIAL CONTROL-NUMBER SERIES ENGINE (ALL MODULES)
+// ============================================================
+let moduleSeriesCounters = JSON.parse(localStorage.getItem("mfi_series_counters") || "{}");
+
+function generateNextModuleSeries(baseControlNo) {
+  const prefix = (portalSettings && portalSettings.seriesPrefix) ? portalSettings.seriesPrefix : "MFI-DVO-HSSE-";
+  const cleanBase = baseControlNo.startsWith("MFI-DVO-HSSE-")
+    ? baseControlNo.replace("MFI-DVO-HSSE-", prefix)
+    : prefix + baseControlNo;
+  const yr = new Date().getFullYear();
+  const key = cleanBase + "-" + yr;
+  const nextNum = (Number(moduleSeriesCounters[key]) || 0) + 1;
+  moduleSeriesCounters[key] = nextNum;
+  localStorage.setItem("mfi_series_counters", JSON.stringify(moduleSeriesCounters));
+  return key + "-" + String(nextNum).padStart(4, "0");
+}
+
+// Automatically stamp every submission across Modules 01–12 with its sequential Series Control No.
+(function attachGlobalSeriesEngine() {
+  const patchSeries = function(client) {
+    if (!client || client._seriesWrapped) return;
+    client._seriesWrapped = true;
+    const origFrom = client.from.bind(client);
+    client.from = function(table) {
+      const q = origFrom(table);
+      if (table === "hsse_logs" && q.insert) {
+        const origInsert = q.insert.bind(q);
+        q.insert = function(rows) {
+          if (Array.isArray(rows)) {
+            rows = rows.map(function(r) {
+              const copy = Object.assign({}, r);
+              const seqSeries = generateNextModuleSeries(copy.control_no || "00-000");
+              if (!copy.remarks || !copy.remarks.includes("SERIES_NO=")) {
+                copy.remarks = "SERIES_NO=" + seqSeries + (copy.remarks ? " | " + copy.remarks : "");
+              }
+              if (copy.report_name && !copy.report_name.includes(seqSeries)) {
+                copy.report_name = copy.report_name + " [" + seqSeries + "]";
+              }
+              return copy;
+            });
+          }
+          return origInsert(rows);
+        };
+      }
+      return q;
+    };
+  };
+  setInterval(function() {
+    if (window.sb && !window.sb._seriesWrapped) patchSeries(window.sb);
+  }, 400);
+})();
 
 </script>
 </body>
