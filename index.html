@@ -141,7 +141,7 @@
 
       <div class="auth-tabs">
         <button type="button" id="tabLogin" class="auth-tab active" onclick="switchAuthTab('login')">Sign In</button>
-        <button type="button" id="tabReg" class="auth-tab" onclick="switchAuthTab('register')">Register Account</button>
+             <button type="button" class="auth-tab" id="tabReg" onclick="showAuthMsg('Registration is restricted. Contact Safety Officer (Admin) to register your account in Settings.', true)">Admin-Only Signup</button>
       </div>
 
       <div id="authMsg" class="auth-msg"></div>
@@ -205,6 +205,8 @@
         <option value="Depot 1">Depot 1 Only</option>
         <option value="Depot 2">Depot 2 Only</option>
       </select>
+            <span id="liveManilaClock" style="font-family:monospace;font-size:11px;color:#bae6fd;background:#0f172a;border:1px solid #334155;padding:4px 8px;border-radius:6px"></span>
+      <button type="button" id="settingsBtn" class="btn btn-sky" style="display:none" onclick="openSettingsModal('users')">⚙️ Settings</button>
       <button type="button" class="btn btn-dark" onclick="handleLogout()">Logout</button>
     </div>
   </header>
@@ -699,6 +701,7 @@ async function loadUserSession(user) {
   document.getElementById("userRoleBadge").textContent = currentRole.replace("_", " ");
   document.getElementById("statUser").textContent = (profile && profile.full_name) ? profile.full_name : user.email;
   document.getElementById("adminUsersBtn").style.display = currentRole === "safety_officer" ? "inline-block" : "none";
+  document.getElementById("settingsBtn").style.display = currentRole === "safety_officer" ? "inline-block" : "none";
 
   const allowedMods = ROLE_SCOPES[currentRole] || ["NONE"];
   document.querySelectorAll("#quickEntryBar button").forEach(function(btn) {
@@ -2134,6 +2137,359 @@ function openDispenseHistoryModal(sec, idx) {
     '</tbody></table>' +
     '<button type="button" class="btn btn-sky" style="margin-top:8px" onclick="openClinicInventoryModal(\'' + sec + '\', \'ledger\')">← Back to Inventory Ledger</button>';
 }
+  // ============================================================
+// 7. REAL-TIME ASIA/MANILA CLOCK & AUTO-ROLLOVER CALENDAR
+// ============================================================
+let lastKnownManilaDate = "";
+
+function startRealtimeManilaClock() {
+  function tick() {
+    const now = new Date();
+    const fmtDate = now.toLocaleDateString("en-CA", { timeZone: "Asia/Manila" });
+    const fmtDisplay = now.toLocaleString("en-PH", {
+      timeZone: "Asia/Manila",
+      weekday: "short",
+      year: "numeric",
+      month: "short",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit"
+    });
+    const el = document.getElementById("liveManilaClock");
+    if (el) el.textContent = "🇵🇭 " + fmtDisplay;
+
+    // Auto-refresh calendar & daily banners at midnight rollover
+    if (lastKnownManilaDate && lastKnownManilaDate !== fmtDate) {
+      calViewDate = new Date();
+      if (typeof syncLiveChartData === "function") syncLiveChartData();
+    }
+    lastKnownManilaDate = fmtDate;
+  }
+  tick();
+  setInterval(tick, 1000);
+}
+startRealtimeManilaClock();
+
+// ============================================================
+// 8. MASTER SETTINGS, MANUAL USER REGISTRATION & [TEST] CLEANER
+// ============================================================
+let portalSettings = JSON.parse(localStorage.getItem("mfi_portal_settings") || "null") || {
+  testingMode: true,
+  seriesPrefix: "MFI-DVO-HSSE-",
+  manHoursBaseline: 33072,
+  shiftHours: 8,
+  dueSoonDays: 7,
+  subjectVendors: new Array("PBCS", "G-FORTUNE", "RMS", "KTC", "KUDOS", "SHIELDS", "MAERSK"),
+  roleModules: {
+    management: new Array("01", "02", "12"),
+    operations: new Array("03", "04", "06", "07"),
+    clinic_nurse: new Array("05", "08"),
+    viewer: new Array()
+  }
+};
+
+function applyPortalSettings() {
+  if (portalSettings.roleModules) {
+    ROLE_SCOPES.management = portalSettings.roleModules.management || new Array("01", "02", "12");
+    ROLE_SCOPES.operations = portalSettings.roleModules.operations || new Array("03", "04", "06", "07");
+    ROLE_SCOPES.clinic_nurse = portalSettings.roleModules.clinic_nurse || new Array("05", "08");
+    ROLE_SCOPES.viewer = new Array("NONE");
+  }
+  localStorage.setItem("mfi_portal_settings", JSON.stringify(portalSettings));
+}
+applyPortalSettings();
+
+// Auto-prepend [TEST] to every log entry & uploaded filename when Testing Mode is ON
+(function attachTestModeInterceptor() {
+  const origCreateClient = window.supabase && window.supabase.createClient;
+  const wrapClient = function(client) {
+    if (!client || client._testWrapped) return client;
+    client._testWrapped = true;
+
+    const origFrom = client.from.bind(client);
+    client.from = function(table) {
+      const q = origFrom(table);
+      if (table === "hsse_logs" && q.insert) {
+        const origInsert = q.insert.bind(q);
+        q.insert = function(rows) {
+          if (portalSettings.testingMode && Array.isArray(rows)) {
+            rows = rows.map(function(r) {
+              const copy = Object.assign({}, r);
+              if (copy.report_name && !copy.report_name.startsWith("[TEST]")) {
+                copy.report_name = "[TEST] " + copy.report_name;
+              }
+              if (copy.remarks && !copy.remarks.startsWith("[TEST]")) {
+                copy.remarks = "[TEST] " + copy.remarks;
+              }
+              return copy;
+            });
+          }
+          return origInsert(rows);
+        };
+      }
+      return q;
+    };
+
+    const origStorageFrom = client.storage.from.bind(client.storage);
+    client.storage.from = function(bucket) {
+      const b = origStorageFrom(bucket);
+      if (bucket === "hsse-evidence" && b.upload) {
+        const origUpload = b.upload.bind(b);
+        b.upload = function(path, file, opts) {
+          if (portalSettings.testingMode && path && !path.includes("[TEST]_")) {
+            const parts = path.split("/");
+            const fname = parts.pop();
+            parts.push("[TEST]_" + fname);
+            path = parts.join("/");
+          }
+          return origUpload(path, file, opts);
+        };
+      }
+      return b;
+    };
+    return client;
+  };
+
+  setInterval(function() {
+    if (window.sb && !window.sb._testWrapped) wrapClient(window.sb);
+  }, 500);
+})();
+
+async function savePortalSettingsToCloud() {
+  applyPortalSettings();
+  if (sb && currentUser) {
+    await sb.from("hsse_dashboard_state").upsert({
+      id: "portal_master_settings",
+      payload: portalSettings,
+      updated_at: new Date().toISOString()
+    });
+  }
+}
+
+async function openSettingsModal(tab) {
+  if (currentRole !== "safety_officer") return alert("Access restricted to Safety Officer (Admin).");
+  const activeTab = tab || "users";
+  document.getElementById("modalTitle").textContent = "⚙️ System Settings, User Control & Test-Data Cleaner (Admin)";
+  document.getElementById("saveEntryBtn").style.display = "none";
+
+  const tabsHtml =
+    '<div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px;background:#020617;padding:5px;border-radius:6px">' +
+      '<button type="button" class="btn ' + (activeTab === "users" ? "btn-sky" : "btn-dark") + '" style="font-size:11px" onclick="openSettingsModal(\'users\')">1. 👥 Users &amp; Registration</button>' +
+      '<button type="button" class="btn ' + (activeTab === "roles" ? "btn-sky" : "btn-dark") + '" style="font-size:11px" onclick="openSettingsModal(\'roles\')">2. 🔐 Role Restrictions</button>' +
+      '<button type="button" class="btn ' + (activeTab === "series" ? "btn-sky" : "btn-dark") + '" style="font-size:11px" onclick="openSettingsModal(\'series\')">3. 🔢 Series &amp; KPI Rules</button>' +
+      '<button type="button" class="btn ' + (activeTab === "clean" ? "btn-red" : "btn-dark") + '" style="font-size:11px" onclick="openSettingsModal(\'clean\')">4. 🧹 Test Tagging &amp; Erase Data</button>' +
+    '</div>';
+
+  let bodyHtml = tabsHtml;
+
+  if (activeTab === "users") {
+    const profRes = await sb.from("profiles").select("*").order("created_at", { ascending: false });
+    const usersList = profRes.data || new Array();
+
+    bodyHtml +=
+      '<div style="background:#020617;border:1px solid #1e293b;border-radius:6px;padding:10px;margin-bottom:10px">' +
+        '<div style="font-size:11px;font-weight:700;color:#38bdf8;margin-bottom:8px">➕ Manually Register New Portal User (Admin Only)</div>' +
+        '<div class="grid-2">' +
+          '<div class="field"><label>Full Name</label><input id="set_u_name" placeholder="e.g., Juan Dela Cruz" /></div>' +
+          '<div class="field"><label>Email Address</label><input id="set_u_email" type="email" placeholder="user@maersk.com" /></div>' +
+          '<div class="field"><label>Temporary Password (Min 6 Chars)</label><input id="set_u_pass" type="text" value="Maersk2026!" /></div>' +
+          '<div class="field"><label>Role Classification</label>' +
+            '<select id="set_u_role">' +
+              '<option value="viewer">Viewer (Read-Only)</option>' +
+              '<option value="operations">Operations (Modules 03, 04, 06, 07)</option>' +
+              '<option value="management">Management (Modules 01, 02, 12)</option>' +
+              '<option value="clinic_nurse">Clinic / Nurse (Modules 05, 08)</option>' +
+              '<option value="safety_officer">Safety Officer (Full Admin)</option>' +
+            '</select>' +
+          '</div>' +
+          '<div class="field"><label>Depot Assignment</label>' +
+            '<select id="set_u_depot"><option>Depot 1 &amp; 2</option><option>Depot 1</option><option>Depot 2</option></select>' +
+          '</div>' +
+          '<div class="field" style="display:flex;align-items:flex-end">' +
+            '<button type="button" class="btn btn-green" style="width:100%" onclick="adminCreateUserAccount()">Register &amp; Activate User</button>' +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+      '<table><thead><tr><th>Name</th><th>Email</th><th>Role Classification</th><th>Depot</th><th>Remove</th></tr></thead><tbody>' +
+      usersList.map(function(u) {
+        const isMainAdmin = u.email === "maerskhsse.s03@gmail.com";
+        return '<tr>' +
+          '<td style="color:#fff;font-weight:700">' + (u.full_name || "-") + '</td>' +
+          '<td style="font-size:11px;color:#94a3b8">' + u.email + '</td>' +
+          '<td>' +
+            (isMainAdmin ? '<span class="pill-comp">SAFETY OFFICER (OWNER)</span>' :
+              '<select style="padding:3px 6px;font-size:11px" onchange="adminChangeUserRole(\'' + u.id + '\', this.value)">' +
+                '<option value="viewer" ' + (u.role === "viewer" ? "selected" : "") + '>Viewer</option>' +
+                '<option value="operations" ' + (u.role === "operations" ? "selected" : "") + '>Operations</option>' +
+                '<option value="management" ' + (u.role === "management" ? "selected" : "") + '>Management</option>' +
+                '<option value="clinic_nurse" ' + (u.role === "clinic_nurse" ? "selected" : "") + '>Clinic / Nurse</option>' +
+                '<option value="safety_officer" ' + (u.role === "safety_officer" ? "selected" : "") + '>Safety Officer</option>' +
+              '</select>') +
+          '</td>' +
+          '<td>' + (u.depot_scope || "Depot 1 & 2") + '</td>' +
+          '<td>' + (isMainAdmin ? "-" : '<button type="button" class="btn btn-red" style="padding:2px 7px;font-size:10px" onclick="adminDeleteUserProfile(\'' + u.id + '\', \'' + u.email + '\')">Delete</button>') + '</td>' +
+        '</tr>';
+      }).join("") +
+      '</tbody></table>';
+  } else if (activeTab === "roles") {
+    bodyHtml +=
+      '<p style="font-size:11px;color:#94a3b8;margin-bottom:8px">Define exact module restrictions per user classification (comma-separated module codes 01–12):</p>' +
+      '<div class="field"><label>Safety Officer (Admin)</label><input value="ALL MODULES (01–12) + SETTINGS + DELETE + USER CONTROL" readonly style="color:#34d399" /></div>' +
+      '<div class="field"><label>Management Allowed Modules</label><input id="set_mod_mgmt" value="' + portalSettings.roleModules.management.join(", ") + '" /></div>' +
+      '<div class="field"><label>Operations Allowed Modules</label><input id="set_mod_ops" value="' + portalSettings.roleModules.operations.join(", ") + '" /></div>' +
+      '<div class="field"><label>Clinic / Nurse Allowed Modules</label><input id="set_mod_clinic" value="' + portalSettings.roleModules.clinic_nurse.join(", ") + '" /></div>' +
+      '<div class="field"><label>Viewer Allowed Modules</label><input value="NONE (View-Only Across All 160 Registers & Dashboard)" readonly style="color:#94a3b8" /></div>' +
+      '<button type="button" class="btn btn-sky" style="width:100%;padding:9px" onclick="saveRoleRestrictions()">Save Role Restrictions</button>';
+  } else if (activeTab === "series") {
+    bodyHtml +=
+      '<div class="grid-2">' +
+        '<div class="field"><label>Master Control-Number Series Prefix</label><input id="set_prefix" value="' + portalSettings.seriesPrefix + '" /></div>' +
+        '<div class="field"><label>Safe Man-Hours Starting Baseline</label><input id="set_mh_base" type="number" value="' + portalSettings.manHoursBaseline + '" /></div>' +
+        '<div class="field"><label>Daily Shift Hours Multiplier</label><input id="set_shift_hrs" type="number" value="' + portalSettings.shiftHours + '" /></div>' +
+        '<div class="field"><label>Approaching Reminder Window (Days)</label><input id="set_due_days" type="number" value="' + portalSettings.dueSoonDays + '" /></div>' +
+      '</div>' +
+      '<div class="field"><label>Subject Contractors Watchlist (Comma-Separated)</label><input id="set_vendors" value="' + portalSettings.subjectVendors.join(", ") + '" /></div>' +
+      '<button type="button" class="btn btn-sky" style="width:100%;padding:9px" onclick="saveSeriesAndKpiSettings()">Save Series &amp; KPI Rules</button>';
+  } else if (activeTab === "clean") {
+    bodyHtml +=
+      '<div style="background:#020617;border:1px solid #38bdf8;border-radius:6px;padding:12px;margin-bottom:12px">' +
+        '<div style="display:flex;justify-content:space-between;align-items:center">' +
+          '<div>' +
+            '<div style="font-weight:800;color:#fff;font-size:12px">🧪 Automatic [TEST] Prefix Mode: ' + (portalSettings.testingMode ? '<span style="color:#fcd34d">ACTIVE (ON)</span>' : '<span style="color:#34d399">LIVE PRODUCTION (OFF)</span>') + '</div>' +
+            '<div style="font-size:11px;color:#94a3b8;margin-top:3px">While ON, every new entry and uploaded file automatically gets <strong>[TEST]</strong> added to its name and storage file path so you can easily erase all test records later.</div>' +
+          '</div>' +
+          '<button type="button" class="btn ' + (portalSettings.testingMode ? "btn-green" : "btn-dark") + '" onclick="toggleTestingMode()">' + (portalSettings.testingMode ? "Switch to LIVE Mode" : "Turn ON [TEST] Mode") + '</button>' +
+        '</div>' +
+      '</div>' +
+      '<div style="background:rgba(220,38,38,0.12);border:1px solid #ef4444;border-radius:6px;padding:12px">' +
+        '<div style="font-weight:800;color:#fca5a5;font-size:12px;margin-bottom:6px">🧹 Erase Test Entries &amp; Reset Portal to Zero for Official Go-Live</div>' +
+        '<p style="font-size:11px;color:#cbd5e1;margin-bottom:10px">Choose whether to delete only <strong>[TEST]</strong> entries &amp; <strong>[TEST]_</strong> files, or wipe <strong>ALL</strong> database entries and local test counters to start fresh from zero reports.</p>' +
+        '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
+          '<button type="button" class="btn btn-sky" style="flex:1" onclick="eraseTestEntriesOnly()">1. Delete Only [TEST] Entries &amp; Files</button>' +
+          '<button type="button" class="btn btn-red" style="flex:1" onclick="eraseAllEntriesToZero()">2. Erase ALL Entries (Start From Zero)</button>' +
+        '</div>' +
+      '</div>';
+  }
+
+  document.getElementById("modalBody").innerHTML = bodyHtml;
+  document.getElementById("entryModal").classList.add("open");
+}
+
+async function adminCreateUserAccount() {
+  const full_name = document.getElementById("set_u_name").value.trim();
+  const email = document.getElementById("set_u_email").value.trim();
+  const password = document.getElementById("set_u_pass").value.trim();
+  const role = document.getElementById("set_u_role").value;
+  const depot_scope = document.getElementById("set_u_depot").value;
+  if (!full_name || !email || password.length < 6) return alert("Enter Full Name, Email, and Password (at least 6 characters).");
+
+  // Create user via secondary non-persisting client so Safety Officer stays logged in
+  const tempClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+    auth: { persistSession: false, autoRefreshToken: false }
+  });
+  const res = await tempClient.auth.signUp({
+    email: email,
+    password: password,
+    options: { data: { full_name: full_name } }
+  });
+  if (res.error) return alert("Registration error: " + res.error.message);
+
+  if (res.data && res.data.user) {
+    await sb.from("profiles").upsert({
+      id: res.data.user.id,
+      email: email,
+      full_name: full_name,
+      role: role,
+      depot_scope: depot_scope,
+      is_active: true
+    });
+  }
+  alert("User " + full_name + " (" + role.toUpperCase() + ") registered successfully!");
+  openSettingsModal("users");
+}
+
+async function adminChangeUserRole(userId, newRole) {
+  const res = await sb.from("profiles").update({ role: newRole }).eq("id", userId);
+  if (res.error) return alert(res.error.message);
+  alert("User role updated to " + newRole.toUpperCase() + ".");
+}
+
+async function adminDeleteUserProfile(userId, email) {
+  if (!confirm("Remove user " + email + " from the portal roster and revoke access?")) return;
+  const res = await sb.from("profiles").delete().eq("id", userId);
+  if (res.error) return alert("Delete error: " + res.error.message);
+  alert("User " + email + " removed.");
+  openSettingsModal("users");
+}
+
+async function saveRoleRestrictions() {
+  portalSettings.roleModules.management = document.getElementById("set_mod_mgmt").value.split(",").map(function(s) { return s.trim(); }).filter(Boolean);
+  portalSettings.roleModules.operations = document.getElementById("set_mod_ops").value.split(",").map(function(s) { return s.trim(); }).filter(Boolean);
+  portalSettings.roleModules.clinic_nurse = document.getElementById("set_mod_clinic").value.split(",").map(function(s) { return s.trim(); }).filter(Boolean);
+  await savePortalSettingsToCloud();
+  alert("Role module restrictions saved and applied!");
+}
+
+async function saveSeriesAndKpiSettings() {
+  portalSettings.seriesPrefix = document.getElementById("set_prefix").value.trim() || "MFI-DVO-HSSE-";
+  portalSettings.manHoursBaseline = Number(document.getElementById("set_mh_base").value) || 0;
+  portalSettings.shiftHours = Number(document.getElementById("set_shift_hrs").value) || 8;
+  portalSettings.dueSoonDays = Number(document.getElementById("set_due_days").value) || 7;
+  portalSettings.subjectVendors = document.getElementById("set_vendors").value.split(",").map(function(s) { return s.trim().toUpperCase(); }).filter(Boolean);
+  await savePortalSettingsToCloud();
+  await syncLiveChartData();
+  alert("Control-number series and KPI rules saved!");
+}
+
+async function toggleTestingMode() {
+  portalSettings.testingMode = !portalSettings.testingMode;
+  await savePortalSettingsToCloud();
+  openSettingsModal("clean");
+}
+
+async function eraseTestEntriesOnly() {
+  if (!confirm("Delete all [TEST] database entries and [TEST]_ uploaded files from Supabase?")) return;
+
+  // 1. Delete [TEST] rows from hsse_logs
+  const delRes = await sb.from("hsse_logs").delete().or("report_name.ilike.%[TEST]%,remarks.ilike.%[TEST]%");
+  if (delRes.error) return alert("Error deleting test rows: " + delRes.error.message);
+
+  // 2. Scan module folders in hsse-evidence and remove [TEST]_ files
+  const modFolders = new Array("01","02","03","03/PTW","04","05","05/LTI","05/MTC","05/FAC","05/Near-Miss","05/Prop-Veh-Dmg","05/Env-Incident","06","07","08","09","10","11","12");
+  for (let i = 0; i < modFolders.length; i++) {
+    const folder = modFolders.at(i);
+    const listRes = await sb.storage.from("hsse-evidence").list(folder);
+    if (listRes.data && listRes.data.length) {
+      const testPaths = listRes.data
+        .filter(function(f) { return f.name && f.name.includes("[TEST]"); })
+        .map(function(f) { return folder + "/" + f.name; });
+      if (testPaths.length) await sb.storage.from("hsse-evidence").remove(testPaths);
+    }
+  }
+
+  localStorage.removeItem("mfi_clinic_inventory");
+  await syncLogsFromSupabase();
+  await syncLiveChartData();
+  renderTable();
+  alert("All [TEST] entries and [TEST]_ storage files have been erased!");
+}
+
+async function eraseAllEntriesToZero() {
+  const confirmTxt = prompt("⚠️ WARNING: This will permanently delete ALL entries in hsse_logs and reset local counters to ZERO for official Go-Live.\n\nType ERASE ALL to confirm:");
+  if (confirmTxt !== "ERASE ALL") return alert("Cancelled — no data was deleted.");
+
+  const delAll = await sb.from("hsse_logs").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+  if (delAll.error) return alert("Erase error: " + delAll.error.message);
+
+  localStorage.removeItem("mfi_clinic_inventory");
+  localStorage.removeItem("mfi_hsse_metrics");
+  await syncLogsFromSupabase();
+  await syncLiveChartData();
+  renderTable();
+  alert("✅ All entries erased! Your portal is now at ZERO reports and ready for official operations.");
+}
+
 </script>
 </body>
 </html>
