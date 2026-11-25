@@ -620,7 +620,7 @@ let registers = RAW_REGISTERS.map(function(r) {
     ref: r.at(3),
     freq: r.at(4),
     location: r.at(5),
-    status: r.at(6),
+        status: "URGENT",
     fileUrl: r.at(7)
   };
 });
@@ -1033,12 +1033,12 @@ let hsseMetrics = {
   leading: { uauc: 100, insp: 100, ptw: 100, mhe: 100, chock: 100, contractor: 100, hes: 100 },
   manpower: { "PBCS": 35, "G-FORTUNE": 43, "RMS": 0, "KTC": 0, "KUDOS": 18, "SHIELDS": 17, "MAERSK": 2 },
   ptwVendors: new Array(
-    { name: "PBCS", status: "Compliant" },
+    { name: "PBCS", status: "Non-Compliant" },
     { name: "G-FORTUNE", status: "Non-compliant" },
-    { name: "MRAY", status: "Compliant" },
+    { name: "MRAY", status: "Non-Compliant" },
     { name: "RMS", status: "Non-compliant" },
-    { name: "KTC", status: "Compliant" },
-    { name: "KODUS", status: "Compliant" }
+    { name: "KTC", status: "Non-Compliant" },
+    { name: "KODUS", status: "Non-Compliant" }
   ),
   ktcRescueCount: 0,
   kodusRescueCount: 0
@@ -2479,7 +2479,7 @@ async function eraseAllEntriesToZero() {
   const confirmTxt = prompt("⚠️ WARNING: This will permanently delete ALL entries in hsse_logs and reset local counters to ZERO for official Go-Live.\n\nType ERASE ALL to confirm:");
   if (confirmTxt !== "ERASE ALL") return alert("Cancelled — no data was deleted.");
 
-  const delAll = await sb.from("hsse_logs").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+   const delAll = await sb.from("hsse_logs").delete().gt("id", 0);
   if (delAll.error) return alert("Erase error: " + delAll.error.message);
 
   localStorage.removeItem("mfi_clinic_inventory");
