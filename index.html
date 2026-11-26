@@ -126,10 +126,13 @@
       .exec-panel { max-height: 76vh !important; overflow-y: auto !important; }
       .table-wrap { flex: 1 !important; overflow-y: auto !important; }
     }
-    @media print {
-      body * { visibility: hidden; }
-      #printArea, #printArea * { visibility: visible; }
-      #printArea { display: block !important; position: absolute; left: 0; top: 0; width: 100%; background: #fff; color: #000; padding: 20px; }
+        @media print {
+      html { zoom: 1 !important; }
+      body > *:not(#printArea) { display: none !important; }
+      #printArea { display: block !important; position: static !important; width: 100% !important; background: #fff !important; color: #0f172a !important; padding: 24px !important; font-family: Arial, sans-serif !important; }
+      #printArea table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+      #printArea th, #printArea td { border: 1px solid #cbd5e1; padding: 6px 8px; text-align: left; font-size: 11px; color: #0f172a !important; }
+      #printArea th { background: #f1f5f9 !important; font-weight: 700; }
     }
   </style>
 </head>
@@ -306,7 +309,8 @@
 
     <!-- CARD B: INCIDENT & LAGGING SUMMARY (Photo 1) -->
     <div class="dash-card">
-      <h4><span>🚨 Incident &amp; Lagging Summary</span><button type="button" class="btn btn-dark" style="padding:2px 6px;font-size:10px" onclick="openLaggingModal()">+ Log</button></h4>
+          <h4><span>🚨 Incident &amp; Lagging Summary</span><span style="display:flex;gap:4px"><button type="button" class="btn btn-red" style="padding:2px 6px;font-size:10px" onclick="openLaggingModal()">+ Log</button><button type="button" class="btn btn-green" style="padding:2px 6px;font-size:10px" onclick="openIncidentCapaModal()">+ CAPA / Close</button></span></h4>
+
       <div style="height:195px"><canvas id="chartLagging"></canvas></div>
     </div>
 
@@ -2323,6 +2327,7 @@ async function openSettingsModal(tab) {
       '<button type="button" class="btn ' + (activeTab === "series" ? "btn-sky" : "btn-dark") + '" style="font-size:11px" onclick="openSettingsModal(\'series\')">3. 🔢 Series &amp; KPI Rules</button>' +
       '<button type="button" class="btn ' + (activeTab === "clean" ? "btn-red" : "btn-dark") + '" style="font-size:11px" onclick="openSettingsModal(\'clean\')">4. 🧹 Test Tagging &amp; Erase Data</button>' +
           '<button type="button" class="btn ' + (activeTab === "modules" ? "btn-sky" : "btn-dark") + '" style="font-size:11px" onclick="openSettingsModal(\'modules\')">5. 📚 Module Titles &amp; Subtitles</button>' +
+          '<button type="button" class="btn ' + (activeTab === "terms" ? "btn-sky" : "btn-dark") + '" style="font-size:11px" onclick="openSettingsModal(\'terms\')">6. 📜 Terms &amp; Conditions</button>' +
     '</div>';
 
   let bodyHtml = tabsHtml;
@@ -2434,6 +2439,16 @@ async function openSettingsModal(tab) {
       }).join("") +
       '</tbody></table>' +
       '<button type="button" class="btn btn-green" style="width:100%;padding:9px;margin-top:8px" onclick="saveCustomModuleTitles()">Save Module Titles &amp; Subtitles</button>';
+  }
+    else if (activeTab === "terms") {
+    bodyHtml +=
+      '<div style="background:#020617;border:1px solid #1e293b;border-radius:6px;padding:12px;font-size:11px;line-height:1.55;color:#cbd5e1">' +
+        '<h4 style="color:#38bdf8;margin-bottom:6px">📜 Maersk Filipinas Inc. (Tibungco Depot 1 &amp; 2) — HSSE Portal Terms &amp; Conditions</h4>' +
+        '<p style="margin-bottom:6px"><strong>1. Authorized Access &amp; Ownership:</strong> This portal is exclusively owned and governed by the designated Safety Officer (Admin — <code>maerskhsse.s03@gmail.com</code>). Only manually registered personnel may access modules within their assigned role classification.</p>' +
+        '<p style="margin-bottom:6px"><strong>2. Data Accuracy &amp; Audit Integrity:</strong> All encoded safety records, permits (PTW), walkthrough findings (WSOR), clinic vitals, and incident/CAPA logs constitute official ISO 45001:2018 and DOLE OSH (R.A. 11058 / D.O. 198-18) compliance documentation. Falsification or unauthorized alteration of records is strictly prohibited.</p>' +
+        '<p style="margin-bottom:6px"><strong>3. Medical &amp; Personal Data Privacy:</strong> Personnel Blood Pressure, medical vitals, and First-Aid treatment records (Modules 05 &amp; 08) are confidential occupational health data governed by the Philippine Data Privacy Act of 2012 (R.A. 10173) and accessible only to authorized HSSE and Clinic personnel.</p>' +
+        '<p style="margin-bottom:0"><strong>4. Evidence &amp; Retention:</strong> Uploaded photos, scans, and PDF reports are archived in encrypted cloud storage categorized by module series (<code>MFI-DVO-HSSE-01</code> through <code>12</code>) for regulatory and internal Maersk regional audits.</p>' +
+      '</div>';
   }
 
   document.getElementById("modalBody").innerHTML = bodyHtml;
@@ -3126,6 +3141,729 @@ async function saveMonthlyManpowerUpdate() {
   await syncLogsFromSupabase();
   await syncLiveChartData();
   openMonthlyManpowerModal("trend", yr, "ALL");
+}
+// ============================================================
+// 14. FORMATTED MAERSK FILIPINAS INC. PRINT / PDF GENERATOR
+// ============================================================
+function formatAndPrintReport(title, controlNo, rowsHtml) {
+  let pa = document.getElementById("printArea");
+  if (!pa) {
+    pa = document.createElement("div");
+    pa.id = "printArea";
+    document.body.appendChild(pa);
+  }
+  const nowPh = new Date().toLocaleString("en-PH", { timeZone: "Asia/Manila" });
+  pa.innerHTML =
+    '<div style="border-bottom:2px solid #0f172a;padding-bottom:10px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center">' +
+      '<div>' +
+        '<div style="font-size:16px;font-weight:800;color:#0f172a">MAERSK FILIPINAS INC. — TIBUNGCO DEPOT 1 &amp; 2</div>' +
+        '<div style="font-size:12px;color:#334155">Health, Safety, Security &amp; Environment (HSSE) Management System</div>' +
+      '</div>' +
+      '<div style="text-align:right;font-size:11px">' +
+        '<div><strong>Control Series:</strong> ' + (controlNo || "MFI-DVO-HSSE") + '</div>' +
+        '<div><strong>Printed:</strong> ' + nowPh + '</div>' +
+      '</div>' +
+    '</div>' +
+    '<h3 style="margin:0 0 8px 0;font-size:14px;color:#0f172a">' + title + '</h3>' +
+    '<table><thead><tr><th>Field / Item</th><th>Details / Recorded Value</th></tr></thead><tbody>' + rowsHtml + '</tbody></table>' +
+    '<div style="margin-top:28px;display:flex;justify-content:space-between;font-size:11px">' +
+      '<div>Prepared By: ___________________________<br>HSSE / Safety Officer</div>' +
+      '<div>Verified By: ___________________________<br>Depot Operations / Management</div>' +
+    '</div>';
+  window.print();
+}
+
+printRegisterRow = function(code) {
+  const r = registers.find(function(x) { return x.code === code; });
+  if (!r) return;
+  const rows =
+    '<tr><td>Register Control No.</td><td><strong>' + r.code + '</strong></td></tr>' +
+    '<tr><td>Module</td><td>' + r.module + '</td></tr>' +
+    '<tr><td>Document / Report Title</td><td>' + r.name + '</td></tr>' +
+    '<tr><td>Legal / ISO Reference</td><td>' + r.ref + '</td></tr>' +
+    '<tr><td>OSH Committee Frequency</td><td>' + r.freq + '</td></tr>' +
+    '<tr><td>Depot Location</td><td>' + r.location + '</td></tr>' +
+    '<tr><td>Current Compliance Status</td><td><strong>' + r.status + '</strong></td></tr>' +
+    '<tr><td>Attached Evidence Link</td><td>' + (r.fileUrl || "No file attached yet") + '</td></tr>';
+  formatAndPrintReport("HSSE Compliance Register Record — " + r.name, r.code, rows);
+};
+
+// ============================================================
+// 15. 2-STAGE INCIDENT (+ LOG) & (+ CAPA / CLOSE) WITH 3 FILES
+// ============================================================
+let incidentRecords = JSON.parse(localStorage.getItem("mfi_incident_records") || "");
+function saveIncidentLocal() { localStorage.setItem("mfi_incident_records", JSON.stringify(incidentRecords)); }
+
+openLaggingModal = function() {
+  const todayStr = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Manila" });
+  document.getElementById("modalTitle").textContent = "🚨 Log New Incident (Marked OPEN Until CAPA Closed)";
+  document.getElementById("saveEntryBtn").style.display = "none";
+
+  document.getElementById("modalBody").innerHTML =
+    '<div class="grid-2">' +
+      '<div class="field"><label>Lagging Classification (Chart Category)</label>' +
+        '<select id="lag_type">' +
+          '<option value="LTI">LTI (Lost Time Injury)</option>' +
+          '<option value="MTC">MTC (Medical Treatment Case)</option>' +
+          '<option value="FAC">FAC (First Aid Case)</option>' +
+          '<option value="Near-Miss">Near-Miss Incident</option>' +
+          '<option value="Prop/Veh Dmg">Prop / Veh Damage</option>' +
+          '<option value="Env. Incident">Environmental Incident</option>' +
+        '</select>' +
+      '</div>' +
+      '<div class="field"><label>Incident Date</label><input id="lag_date" type="date" value="' + todayStr + '" /></div>' +
+      '<div class="field"><label>Depot Location</label><select id="lag_loc"><option>Depot 1</option><option>Depot 2</option><option>Depot 1 &amp; 2</option></select></div>' +
+      '<div class="field"><label>Involved Vendor / Personnel</label><input id="lag_who" placeholder="Full Name / Vendor (PBCS, G-Fortune, etc.)" /></div>' +
+    '</div>' +
+    '<div class="field"><label>Incident Summary &amp; Immediate Action</label><textarea id="lag_desc" rows="2" placeholder="Describe what happened and immediate control taken..."></textarea></div>' +
+    '<div class="field"><label>Initial Incident Report / Photo (Optional)</label><input id="lag_file" type="file" accept=".pdf,image/*,.docx,.xlsx" /></div>' +
+    '<button type="button" class="btn btn-red" style="width:100%;padding:9px" onclick="saveLaggingIncidentLog()">Submit Incident (Mark OPEN &amp; Update Chart)</button>';
+
+  document.getElementById("entryModal").classList.add("open");
+};
+
+saveLaggingIncidentLog = async function() {
+  const type = document.getElementById("lag_type").value;
+  const dt = document.getElementById("lag_date").value;
+  const loc = document.getElementById("lag_loc").value;
+  const who = document.getElementById("lag_who").value.trim();
+  const desc = document.getElementById("lag_desc").value.trim();
+  if (!desc) return alert("Please enter Incident Summary.");
+
+  const codeMap = { "LTI": "MFI-DVO-HSSE-05-008", "MTC": "MFI-DVO-HSSE-05-007", "FAC": "MFI-DVO-HSSE-05-006", "Near-Miss": "MFI-DVO-HSSE-05-002", "Prop/Veh Dmg": "MFI-DVO-HSSE-05-003", "Env. Incident": "MFI-DVO-HSSE-05-004" };
+  const folderSlug = type.replace(/[^a-zA-Z0-9]/g, "-");
+  const ctrlNo = codeMap[type] || "MFI-DVO-HSSE-05-001";
+  const incId = "INC-" + Date.now().toString().slice(-6);
+
+  let fileUrl = "";
+  const fInp = document.getElementById("lag_file");
+  if (fInp && fInp.files && fInp.files.length > 0 && sb) {
+    const f = fInp.files.item(0);
+    const path = "05/" + folderSlug + "/" + incId + "_OPEN_" + dt + "_" + f.name;
+    const up = await sb.storage.from("hsse-evidence").upload(path, f);
+    if (!up.error) fileUrl = sb.storage.from("hsse-evidence").getPublicUrl(path).data.publicUrl;
+  }
+
+  incidentRecords.unshift({ incId: incId, type: type, date: dt, loc: loc, who: who, desc: desc, openFile: fileUrl, status: "OPEN", ctrlNo: ctrlNo, folderSlug: folderSlug });
+  saveIncidentLocal();
+
+  const remarks = "INC_ID=" + incId + " | STATUS=OPEN | LAGGING_TYPE=" + type + " | Date: " + dt + " | Involved: " + who + " | Details: " + desc;
+  if (sb && currentUser) {
+    const res = await sb.from("hsse_logs").insert(new Array({
+      control_no: ctrlNo,
+      module_code: "05",
+      report_name: "[" + type + "] OPEN (" + incId + ") — " + (who || loc),
+      depot_location: loc,
+      status: "URGENT",
+      file_url: fileUrl,
+      remarks: remarks,
+      submitted_by: currentUser.id
+    }));
+    if (res.error) return alert("Save error: " + res.error.message);
+  }
+
+  closeModal("entryModal");
+  await syncLiveChartData();
+  alert(type + " (" + incId + ") logged as OPEN and counted in chart! Use '+ CAPA / Close' once corrective action evidence is ready.");
+};
+
+function openIncidentCapaModal() {
+  const todayStr = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Manila" });
+  const openIncs = incidentRecords.filter(function(i) { return i.status === "OPEN"; });
+  document.getElementById("modalTitle").textContent = "✅ Incident CAPA Compliance & Closure (Upload Up to 3 Evidence Files)";
+  document.getElementById("saveEntryBtn").style.display = "none";
+
+  if (!openIncs.length) {
+    document.getElementById("modalBody").innerHTML = '<p style="text-align:center;color:#34d399;padding:18px">✅ All logged incidents have completed CAPA and are CLOSED!</p>';
+    document.getElementById("entryModal").classList.add("open");
+    return;
+  }
+
+  document.getElementById("modalBody").innerHTML =
+    '<div class="field"><label>Select OPEN Incident to Close via CAPA</label>' +
+      '<select id="capa_inc_sel" onchange="previewOpenIncident()">' +
+        openIncs.map(function(i) { return '<option value="' + i.incId + '">' + i.incId + ' [' + i.type + '] — ' + i.date + ' (' + (i.who || i.loc) + ')</option>'; }).join("") +
+      '</select>' +
+    '</div>' +
+    '<div id="capa_inc_preview" style="background:#020617;border:1px solid #334155;border-radius:6px;padding:8px;font-size:11px;color:#cbd5e1;margin-bottom:8px"></div>' +
+    '<div class="grid-2">' +
+      '<div class="field"><label>Date CAPA Complied / Incident Closed</label><input id="capa_date" type="date" value="' + todayStr + '" /></div>' +
+      '<div class="field"><label>Verified By (Safety Officer / Champion)</label><input id="capa_by" placeholder="Full Name" /></div>' +
+    '</div>' +
+    '<div class="field"><label>Root Cause &amp; Corrective / Preventive Action (CAPA) Taken</label><textarea id="capa_act" rows="2" placeholder="Describe root cause and corrective/preventive measures implemented..."></textarea></div>' +
+    '<div class="grid-3">' +
+      '<div class="field"><label>Evidence File / Photo 1</label><input id="capa_f1" type="file" accept="image/*,.pdf,.docx" /></div>' +
+      '<div class="field"><label>Evidence File / Photo 2</label><input id="capa_f2" type="file" accept="image/*,.pdf,.docx" /></div>' +
+      '<div class="field"><label>Evidence File / Photo 3</label><input id="capa_f3" type="file" accept="image/*,.pdf,.docx" /></div>' +
+    '</div>' +
+    '<button type="button" class="btn btn-green" style="width:100%;padding:9px" onclick="submitIncidentCapaClosure()">Submit CAPA Evidence &amp; Mark Incident CLOSED</button>';
+
+  previewOpenIncident();
+  document.getElementById("entryModal").classList.add("open");
+}
+
+function previewOpenIncident() {
+  const sel = document.getElementById("capa_inc_sel");
+  const box = document.getElementById("capa_inc_preview");
+  if (!sel || !box) return;
+  const inc = incidentRecords.find(function(i) { return i.incId === sel.value; });
+  if (!inc) return;
+  box.innerHTML = '<strong>Type:</strong> ' + inc.type + ' | <strong>Date:</strong> ' + inc.date + ' | <strong>Location:</strong> ' + inc.loc + ' | <strong>Involved:</strong> ' + (inc.who || "-") + '<br><strong>Summary:</strong> ' + inc.desc;
+}
+
+async function submitIncidentCapaClosure() {
+  const incId = document.getElementById("capa_inc_sel").value;
+  const closeDt = document.getElementById("capa_date").value;
+  const by = document.getElementById("capa_by").value.trim();
+  const act = document.getElementById("capa_act").value.trim();
+  const inc = incidentRecords.find(function(i) { return i.incId === incId; });
+  if (!inc || !act) return alert("Please describe the CAPA taken.");
+
+  const urls = new Array();
+  const fileIds = new Array("capa_f1", "capa_f2", "capa_f3");
+  for (let i = 0; i < fileIds.length; i++) {
+    const inp = document.getElementById(fileIds.at(i));
+    if (inp && inp.files && inp.files.length > 0 && sb) {
+      const f = inp.files.item(0);
+      const p = "05/" + inc.folderSlug + "/" + incId + "_CAPA_F" + (i + 1) + "_" + closeDt + "_" + f.name;
+      const up = await sb.storage.from("hsse-evidence").upload(p, f);
+      if (!up.error) urls.push(sb.storage.from("hsse-evidence").getPublicUrl(p).data.publicUrl);
+    }
+  }
+
+  inc.status = "CLOSED";
+  inc.closeDate = closeDt;
+  inc.capa = act;
+  inc.capaFiles = urls;
+  saveIncidentLocal();
+
+  // Note: Does NOT include LAGGING_TYPE= so chart never double-counts, while original OPEN log remains counted in chart!
+  const summary = "CAPA_CLOSED | INC_ID=" + incId + " | Type: " + inc.type + " | Closed Date: " + closeDt + " | Verified By: " + by + " | CAPA: " + act + (urls.length ? " | Files(" + urls.length + "): " + urls.join(" , ") : "");
+  if (sb && currentUser) {
+    await sb.from("hsse_logs").insert(new Array({
+      control_no: inc.ctrlNo,
+      module_code: "05",
+      report_name: "[" + inc.type + "] CLOSED via CAPA (" + incId + ")",
+      depot_location: inc.loc,
+      status: "Complied",
+      file_url: urls.at(0) || inc.openFile || "",
+      remarks: summary,
+      submitted_by: currentUser.id
+    }));
+  }
+  closeModal("entryModal");
+  await syncLogsFromSupabase();
+  await syncLiveChartData();
+  renderTable();
+  alert("Incident " + incId + " CAPA submitted (" + urls.length + " files attached) and marked CLOSED!");
+}
+
+// ============================================================
+// 16. DUAL-DEPOT MONDAY PTW (+ N/A) & STRUCTURED RESCUE JO SERIES
+// ============================================================
+let dualDepotPtw = JSON.parse(localStorage.getItem("mfi_dual_ptw") || "null") || {
+  "PBCS": { d1: "Pending", d2: "Pending" },
+  "G-FORTUNE": { d1: "Pending", d2: "Pending" },
+  "MRAY": { d1: "Pending", d2: "Pending" },
+  "RMS": { d1: "Pending", d2: "Pending" },
+  "KTC": { d1: "Pending", d2: "Pending" },
+  "KUDOS": { d1: "Pending", d2: "Pending" }
+};
+function saveDualPtwLocal() { localStorage.setItem("mfi_dual_ptw", JSON.stringify(dualDepotPtw)); }
+
+function getNextUnifiedPtwSeries() {
+  return generateNextModuleSeries("MFI-DVO-HSSE-03-004-PTW");
+}
+
+function renderDualDepotPtwList() {
+  const box = document.getElementById("ptwVendorList");
+  if (!box) return;
+  const vendors = Object.keys(dualDepotPtw);
+  let compCount = 0;
+
+  box.innerHTML = vendors.map(function(v) {
+    const st = dualDepotPtw[v] || { d1: "Pending", d2: "Pending" };
+    const d1Ok = st.d1 === "Uploaded" || st.d1 === "N/A";
+    const d2Ok = st.d2 === "Uploaded" || st.d2 === "N/A";
+    const allOk = d1Ok && d2Ok;
+    if (allOk) compCount++;
+
+    return '<div class="vendor-row" style="flex-direction:column;align-items:stretch;gap:3px;padding:4px 6px">' +
+      '<div style="display:flex;justify-content:space-between;align-items:center">' +
+        '<strong style="color:#fff">' + v + '</strong>' +
+        '<span class="' + (allOk ? "pill-comp" : "pill-over") + '">' + (allOk ? "Compliant" : "Pending PTW") + '</span>' +
+      '</div>' +
+      '<div style="display:flex;justify-content:space-between;align-items:center;font-size:10px">' +
+        '<span>Depot 1: <strong style="color:' + (d1Ok ? "#34d399" : "#fca5a5") + '">' + st.d1 + '</strong></span>' +
+        '<span style="display:flex;gap:3px">' +
+          '<button type="button" class="btn btn-sky" style="padding:1px 5px;font-size:9px" onclick="openDualPtwUploadModal(\'' + v + '\', \'Depot 1\')">Upload D1</button>' +
+          '<button type="button" class="btn btn-dark" style="padding:1px 5px;font-size:9px" onclick="markDepotPtwNA(\'' + v + '\', \'d1\')">N/A</button>' +
+        '</span>' +
+      '</div>' +
+      '<div style="display:flex;justify-content:space-between;align-items:center;font-size:10px">' +
+        '<span>Depot 2: <strong style="color:' + (d2Ok ? "#34d399" : "#fca5a5") + '">' + st.d2 + '</strong></span>' +
+        '<span style="display:flex;gap:3px">' +
+          '<button type="button" class="btn btn-sky" style="padding:1px 5px;font-size:9px" onclick="openDualPtwUploadModal(\'' + v + '\', \'Depot 2\')">Upload D2</button>' +
+          '<button type="button" class="btn btn-dark" style="padding:1px 5px;font-size:9px" onclick="markDepotPtwNA(\'' + v + '\', \'d2\')">N/A</button>' +
+        '</span>' +
+      '</div>' +
+    '</div>';
+  }).join("");
+
+  const badge = document.getElementById("ptwCompliantBadge");
+  if (badge) badge.textContent = compCount + " / " + vendors.length + " Compliant";
+}
+setTimeout(renderDualDepotPtwList, 600);
+
+async function markDepotPtwNA(vendor, depotKey) {
+  dualDepotPtw[vendor][depotKey] = "N/A";
+  saveDualPtwLocal();
+  renderDualDepotPtwList();
+
+  const depotLabel = depotKey === "d1" ? "Depot 1" : "Depot 2";
+  const seriesNo = getNextUnifiedPtwSeries();
+  if (sb && currentUser) {
+    await sb.from("hsse_logs").insert(new Array({
+      control_no: "MFI-DVO-HSSE-03-004",
+      module_code: "03",
+      report_name: "Monday PTW [" + vendor + " — " + depotLabel + "] Marked N/A (" + seriesNo + ")",
+      depot_location: depotLabel,
+      status: "Complied",
+      remarks: "PTW_SERIES=" + seriesNo + " | Vendor: " + vendor + " | " + depotLabel + " = N/A (No Activity)",
+      submitted_by: currentUser.id
+    }));
+  }
+}
+
+function openDualPtwUploadModal(vendor, depotLabel) {
+  const seriesNo = getNextUnifiedPtwSeries();
+  document.getElementById("modalTitle").textContent = "📋 Upload Monday PTW — " + vendor + " (" + depotLabel + ")";
+  document.getElementById("saveEntryBtn").style.display = "none";
+  document.getElementById("modalBody").innerHTML =
+    '<div class="field"><label>Auto-Generated Continuous PTW Control Series</label><input id="dptw_series" value="' + seriesNo + '" readonly style="color:#38bdf8;font-weight:700" /></div>' +
+    '<div class="field"><label>Work Activity Scope (' + depotLabel + ')</label><input id="dptw_scope" placeholder="Describe authorized activity in ' + depotLabel + '..." /></div>' +
+    '<div class="field"><label>Attach Signed Monday PTW File / Photo</label><input id="dptw_file" type="file" accept=".pdf,image/*" /></div>' +
+    '<button type="button" class="btn btn-green" style="width:100%;padding:9px" onclick="submitDualPtwUpload(\'' + vendor + '\', \'' + depotLabel + '\')">Submit ' + depotLabel + ' PTW &amp; Mark Compliant</button>';
+  document.getElementById("entryModal").classList.add("open");
+}
+
+async function submitDualPtwUpload(vendor, depotLabel) {
+  const seriesNo = document.getElementById("dptw_series").value;
+  const scope = document.getElementById("dptw_scope").value.trim();
+  const fInp = document.getElementById("dptw_file");
+  if (!fInp || !fInp.files || !fInp.files.length) return alert("Please attach the signed PTW file.");
+
+  let fileUrl = "";
+  if (sb) {
+    const f = fInp.files.item(0);
+    const p = "03/PTW/" + seriesNo + "_" + vendor + "_" + depotLabel.replace(/\s+/g, "") + "_" + f.name;
+    const up = await sb.storage.from("hsse-evidence").upload(p, f);
+    if (!up.error) fileUrl = sb.storage.from("hsse-evidence").getPublicUrl(p).data.publicUrl;
+  }
+
+  dualDepotPtw[vendor][depotLabel === "Depot 1" ? "d1" : "d2"] = "Uploaded";
+  saveDualPtwLocal();
+  renderDualDepotPtwList();
+
+  if (sb && currentUser) {
+    await sb.from("hsse_logs").insert(new Array({
+      control_no: "MFI-DVO-HSSE-03-004",
+      module_code: "03",
+      report_name: "Monday PTW [" + vendor + " — " + depotLabel + "] (" + seriesNo + ")",
+      depot_location: depotLabel,
+      status: "Complied",
+      file_url: fileUrl,
+      remarks: "PTW_SERIES=" + seriesNo + " | Vendor: " + vendor + " | Location: " + depotLabel + " | Scope: " + scope,
+      submitted_by: currentUser.id
+    }));
+  }
+  closeModal("entryModal");
+  await syncLogsFromSupabase();
+  alert(vendor + " (" + depotLabel + ") PTW uploaded under " + seriesNo + "!");
+}
+
+// Structured KTC & KUDOS Rescue Job Order Modal (Shares Continuous PTW Control Series)
+addRescueJobOrder = function(vendorName) {
+  const todayStr = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Manila" });
+  const seriesNo = getNextUnifiedPtwSeries();
+  document.getElementById("modalTitle").textContent = "🚨 " + vendorName + " Rescue Job Order (Continuous PTW Series)";
+  document.getElementById("saveEntryBtn").style.display = "none";
+
+  document.getElementById("modalBody").innerHTML =
+    '<div class="grid-2">' +
+      '<div class="field"><label>Auto-Series PTW / JO Control Number</label><input id="rjo_series" value="' + seriesNo + '" readonly style="color:#38bdf8;font-weight:700" /></div>' +
+      '<div class="field"><label>Date</label><input id="rjo_date" type="date" value="' + todayStr + '" /></div>' +
+    '</div>' +
+    '<div class="field"><label>Depot Location</label><select id="rjo_loc"><option>Depot 1</option><option>Depot 2</option><option>Depot 1 &amp; 2</option></select></div>' +
+    '<div class="field"><label>Job Order Description</label><textarea id="rjo_desc" rows="2" placeholder="Describe rescue / emergency job order scope..."></textarea></div>' +
+    '<div class="field"><label>Attach Signed Job Order / PTW Scan (Optional)</label><input id="rjo_file" type="file" accept=".pdf,image/*" /></div>' +
+    '<button type="button" class="btn btn-sky" style="width:100%;padding:9px" onclick="submitRescueJoModal(\'' + vendorName + '\')">Submit ' + vendorName + ' Rescue Job Order</button>';
+
+  document.getElementById("entryModal").classList.add("open");
+};
+
+async function submitRescueJoModal(vendorName) {
+  const seriesNo = document.getElementById("rjo_series").value;
+  const dt = document.getElementById("rjo_date").value;
+  const loc = document.getElementById("rjo_loc").value;
+  const desc = document.getElementById("rjo_desc").value.trim();
+  if (!desc) return alert("Please enter Job Order Description.");
+
+  let fileUrl = "";
+  const fInp = document.getElementById("rjo_file");
+  if (fInp && fInp.files && fInp.files.length > 0 && sb) {
+    const f = fInp.files.item(0);
+    const p = "03/PTW/" + seriesNo + "_" + vendorName + "_RESCUE_" + dt + "_" + f.name;
+    const up = await sb.storage.from("hsse-evidence").upload(p, f);
+    if (!up.error) fileUrl = sb.storage.from("hsse-evidence").getPublicUrl(p).data.publicUrl;
+  }
+
+  if (vendorName === "KTC") hsseMetrics.rescueKtc++;
+  else hsseMetrics.rescueKudos++;
+  renderExecDashboard();
+
+  if (sb && currentUser) {
+    await sb.from("hsse_logs").insert(new Array({
+      control_no: "MFI-DVO-HSSE-03-004",
+      module_code: "03",
+      report_name: vendorName + " Rescue JO [" + seriesNo + "] — " + desc.slice(0, 40),
+      depot_location: loc,
+      status: "Complied",
+      file_url: fileUrl,
+      remarks: "PTW_SERIES=" + seriesNo + " | RESCUE_JO=" + vendorName + " | Date: " + dt + " | Description: " + desc,
+      submitted_by: currentUser.id
+    }));
+  }
+  closeModal("entryModal");
+  await syncLogsFromSupabase();
+  alert(vendorName + " Rescue Job Order saved under continuous series " + seriesNo + "!");
+}
+
+// ============================================================
+// 17. DAILY MANPOWER WITH SEPARATE DAY SHIFT OT & NIGHT SHIFT OT
+// ============================================================
+openDailyManpowerModal = function() {
+  const todayStr = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Manila" });
+  document.getElementById("modalTitle").textContent = "👷 Daily Manpower & Safe Man-Hours (8h + Day OT + Night OT)";
+  document.getElementById("saveEntryBtn").style.display = "none";
+
+  const rowsHtml = SUBJECT_VENDORS.map(function(v) {
+    const isDone = todayEncodedVendors.includes(v);
+    const curVal = hsseMetrics.manpower[v] !== undefined ? hsseMetrics.manpower[v] : "";
+    const statusTag = isDone ? '<span class="pill-comp">Encoded</span>' : '<span class="pill-over">Pending</span>';
+    return '<tr>' +
+      '<td style="font-weight:700;color:#fff">' + v + '</td>' +
+      '<td>' + statusTag + '</td>' +
+      '<td><input type="number" min="0" id="mp_in_' + v + '" value="' + curVal + '" placeholder="Pax" oninput="recalcDailyManhoursPreview()" /></td>' +
+      '<td><input type="number" min="0" step="0.5" id="mp_dot_' + v + '" value="0" placeholder="Day OT" oninput="recalcDailyManhoursPreview()" /></td>' +
+      '<td><input type="number" min="0" step="0.5" id="mp_not_' + v + '" value="0" placeholder="Night OT" oninput="recalcDailyManhoursPreview()" /></td>' +
+      '<td style="font-family:monospace;color:#38bdf8" id="mp_hrs_' + v + '">' + ((Number(curVal) || 0) * 8) + ' hrs</td>' +
+    '</tr>';
+  }).join("");
+
+  document.getElementById("modalBody").innerHTML =
+    '<div class="grid-2">' +
+      '<div class="field"><label>Shift Date</label><input id="mp_date" type="date" value="' + todayStr + '" /></div>' +
+      '<div class="field"><label>Depot Location</label><select id="mp_loc"><option>Depot 1 &amp; 2</option><option>Depot 1</option><option>Depot 2</option></select></div>' +
+    '</div>' +
+    '<div id="mpMissingWarn" style="font-size:11px;padding:6px 10px;border-radius:6px;background:rgba(239,68,68,0.2);border:1px solid #ef4444;color:#fca5a5"></div>' +
+    '<table><thead><tr><th>Contractor</th><th>Status</th><th>Pax</th><th>Day Shift OT (Hrs)</th><th>Night Shift OT (Hrs)</th><th>Total Hrs</th></tr></thead><tbody>' + rowsHtml + '</tbody></table>' +
+    '<div style="display:flex;justify-content:space-between;align-items:center;background:#020617;padding:10px;border:1px solid #1e293b;border-radius:6px">' +
+      '<span style="color:#cbd5e1;font-size:11px">Pax: <strong id="mpTotalPax" style="color:#fff">0</strong> | Day OT: <strong id="mpTotalDot" style="color:#fcd34d">0</strong>h | Night OT: <strong id="mpTotalNot" style="color:#38bdf8">0</strong>h</span>' +
+      '<span style="color:#34d399">Total Added: <strong id="mpTotalHrs" style="font-size:14px">0</strong> hrs</span>' +
+      '<button type="button" class="btn btn-green" onclick="saveDailyManpowerLog()">Save &amp; Accumulate</button>' +
+    '</div>';
+
+  recalcDailyManhoursPreview();
+  document.getElementById("entryModal").classList.add("open");
+};
+
+recalcDailyManhoursPreview = function() {
+  let totalPax = 0, totalDot = 0, totalNot = 0, grandHours = 0;
+  const missing = new Array();
+
+  SUBJECT_VENDORS.forEach(function(v) {
+    const inp = document.getElementById("mp_in_" + v);
+    const dotInp = document.getElementById("mp_dot_" + v);
+    const notInp = document.getElementById("mp_not_" + v);
+    const raw = inp ? inp.value.trim() : "";
+    if (raw === "") missing.push(v);
+
+    const pax = Number(raw) || 0;
+    const dot = Number(dotInp ? dotInp.value : 0) || 0;
+    const not = Number(notInp ? notInp.value : 0) || 0;
+    const rowHours = (pax * 8) + dot + not;
+
+    totalPax += pax; totalDot += dot; totalNot += not; grandHours += rowHours;
+    const cell = document.getElementById("mp_hrs_" + v);
+    if (cell) cell.textContent = rowHours.toLocaleString() + " hrs";
+  });
+
+  document.getElementById("mpTotalPax").textContent = totalPax;
+  document.getElementById("mpTotalDot").textContent = totalDot.toLocaleString();
+  document.getElementById("mpTotalNot").textContent = totalNot.toLocaleString();
+  document.getElementById("mpTotalHrs").textContent = grandHours.toLocaleString();
+
+  const warn = document.getElementById("mpMissingWarn");
+  if (missing.length) { warn.style.display = "block"; warn.textContent = "⚠️ Attention: Not yet filled: " + missing.join(", "); }
+  else { warn.style.display = "none"; }
+};
+
+saveDailyManpowerLog = async function() {
+  const shiftDate = document.getElementById("mp_date").value;
+  const loc = document.getElementById("mp_loc").value;
+  let totalPax = 0, totalDot = 0, totalNot = 0, dailyHours = 0;
+  const breakdown = new Array(), missing = new Array();
+
+  SUBJECT_VENDORS.forEach(function(v) {
+    const raw = document.getElementById("mp_in_" + v).value.trim();
+    const dot = Number(document.getElementById("mp_dot_" + v).value) || 0;
+    const not = Number(document.getElementById("mp_not_" + v).value) || 0;
+    if (raw === "") missing.push(v);
+    else {
+      const pax = Number(raw) || 0;
+      totalPax += pax; totalDot += dot; totalNot += not;
+      dailyHours += (pax * 8) + dot + not;
+      breakdown.push(v + ": " + pax + " (DayOT:" + dot + "h, NightOT:" + not + "h)");
+    }
+  });
+
+  if (missing.length > 0 && !confirm("Warning: " + missing.join(", ") + " not yet filled.\n\nSave partial count anyway?")) return;
+
+  const summaryText = "DATE=" + shiftDate + " | PAX=" + totalPax + " | DAY_OT=" + totalDot + " | NIGHT_OT=" + totalNot + " | HOURS=" + dailyHours + " | " + breakdown.join(" | ");
+  if (sb && currentUser) {
+    const res = await sb.from("hsse_logs").insert(new Array({
+      control_no: "MFI-DVO-HSSE-06-001",
+      module_code: "06",
+      report_name: "Daily Manpower (" + shiftDate + ") — " + dailyHours + " hrs",
+      depot_location: loc,
+      status: missing.length === 0 ? "Complied" : "Due Soon",
+      remarks: summaryText,
+      submitted_by: currentUser.id
+    }));
+    if (res.error) return alert("Save error: " + res.error.message);
+  }
+  closeModal("entryModal");
+  await syncLiveChartData();
+  alert("Saved " + totalPax + " pax + Day OT (" + totalDot + "h) + Night OT (" + totalNot + "h) = " + dailyHours.toLocaleString() + " Total Safe Man-Hours!");
+};
+
+// ============================================================
+// 18. REDESIGNED FIRST-AID INVENTORY & SEPARATED + FA-PATIENT CASE
+// ============================================================
+clinicState.patientCases = clinicState.patientCases || new Array();
+
+openClinicInventoryModal = function(section, subView) {
+  const sec = section || "FA";
+  const view = subView || "ledger";
+  const todayStr = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Manila" });
+
+  document.getElementById("modalTitle").textContent = "🏥 Clinic & First-Aid / Medicine Inventory (Modules 08 & 05-006)";
+  document.getElementById("saveEntryBtn").style.display = "none";
+
+  let contentHtml =
+    '<div style="display:flex;gap:8px;margin-bottom:8px;background:#020617;padding:4px;border-radius:6px">' +
+      '<button type="button" class="btn ' + (sec === "FA" ? "btn-sky" : "btn-dark") + '" style="flex:1" onclick="openClinicInventoryModal(\'FA\', \'ledger\')">🩹 First-Aid Supplies &amp; Patient Cases</button>' +
+      '<button type="button" class="btn ' + (sec === "MED" ? "btn-green" : "btn-dark") + '" style="flex:1" onclick="openClinicInventoryModal(\'MED\', \'ledger\')">💊 Medicine Supplies Inventory</button>' +
+    '</div>';
+
+  if (sec === "FA") {
+    contentHtml +=
+      '<div style="display:flex;gap:6px;margin-bottom:10px">' +
+        '<button type="button" class="btn ' + (view === "ledger" ? "btn-sky" : "btn-dark") + '" style="flex:1;font-size:11px" onclick="openClinicInventoryModal(\'FA\', \'ledger\')">📋 First-Aid Stock Ledger</button>' +
+        '<button type="button" class="btn ' + (view === "add" ? "btn-green" : "btn-dark") + '" style="flex:1;font-size:11px" onclick="openClinicInventoryModal(\'FA\', \'add\')">➕ Add / Update FA Stock</button>' +
+        '<button type="button" class="btn ' + (view === "patient" ? "btn-red" : "btn-dark") + '" style="flex:1;font-size:11px" onclick="openClinicInventoryModal(\'FA\', \'patient\')">🩹 + FA-Patient Case (' + clinicState.patientCases.length + ')</button>' +
+      '</div>';
+
+    if (view === "add") {
+      contentHtml +=
+        '<div class="grid-2">' +
+          '<div class="field"><label>Date</label><input id="fa_add_date" type="date" value="' + todayStr + '" /></div>' +
+          '<div class="field"><label>Item Name</label><input id="fa_add_name" placeholder="e.g., Betadine / Gauze Pad" /></div>' +
+          '<div class="field"><label>Description</label><input id="fa_add_desc" placeholder="Antiseptic / Dressing" /></div>' +
+          '<div class="field"><label>Size / mL</label><input id="fa_add_size" placeholder="120 mL / 4x4" /></div>' +
+          '<div class="field"><label>Inventory Actual (Starting / Physical Count)</label><input id="fa_add_actual" type="number" min="0" value="10" /></div>' +
+          '<div class="field"><label>Remaining Qty (Current Count)</label><input id="fa_add_rem" type="number" min="0" value="10" /></div>' +
+        '</div>' +
+        '<button type="button" class="btn btn-green" style="width:100%;padding:9px" onclick="submitFaInventoryStock()">Save First-Aid Supply Count</button>';
+    } else if (view === "patient") {
+      contentHtml +=
+        '<div style="background:#020617;border:1px solid #1e293b;border-radius:6px;padding:10px;margin-bottom:10px">' +
+          '<div class="grid-2">' +
+            '<div class="field"><label>Name of Personnel</label><input id="fap_name" placeholder="Patient Full Name" /></div>' +
+            '<div class="field"><label>Date</label><input id="fap_date" type="date" value="' + todayStr + '" /></div>' +
+            '<div class="field"><label>Case / Treatment Provided</label><input id="fap_case" placeholder="e.g., Minor finger abrasion — cleaned &amp; dressed" /></div>' +
+            '<div class="field"><label>FA Attendant Name</label><input id="fap_att" placeholder="First-Aider / Nurse Name" /></div>' +
+          '</div>' +
+          '<button type="button" class="btn btn-green" style="width:100%;padding:9px" onclick="confirmFaPatientCase()">Confirm Patient &amp; Sync Registry (MFI-DVO-HSSE-05-006)</button>' +
+        '</div>' +
+        '<table><thead><tr><th>Date</th><th>Name of Personnel</th><th>Case / Treatment</th><th>FA Attendant Name</th></tr></thead><tbody>' +
+        (clinicState.patientCases.length ? clinicState.patientCases.map(function(p) {
+          return '<tr><td>' + p.date + '</td><td style="color:#fff;font-weight:700">' + p.name + '</td><td>' + p.caseTxt + '</td><td>' + p.attendant + '</td></tr>';
+        }).join("") : '<tr><td colspan="4" style="text-align:center;color:#64748b;padding:10px">No FA-Patient cases recorded yet.</td></tr>') +
+        '</tbody></table>';
+    } else {
+      contentHtml +=
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">' +
+          '<span style="font-size:11px;color:#94a3b8">Update physical remaining counts anytime; Dispensed Qty auto-computes (Actual − Remaining).</span>' +
+          '<button type="button" class="btn btn-red" style="padding:4px 10px;font-size:11px" onclick="openClinicInventoryModal(\'FA\', \'patient\')">+ FA-Patient Case</button>' +
+        '</div>' +
+        '<table><thead><tr><th>Date</th><th>Item Name</th><th>Description</th><th>Size / mL</th><th>Inventory Actual</th><th>Dispensed Qty</th><th>Remaining Qty</th><th>Update Count</th></tr></thead><tbody>' +
+        clinicState.faItems.map(function(it, idx) {
+          const actual = Number(it.actual !== undefined ? it.actual : it.added) || 0;
+          const rem = Number(it.remaining !== undefined ? it.remaining : (actual - (Number(it.dispensed) || 0))) || 0;
+          const disp = Math.max(0, actual - rem);
+          return '<tr>' +
+            '<td style="font-size:11px;color:#94a3b8">' + it.date + '</td>' +
+            '<td style="color:#fff;font-weight:700">' + it.name + '</td>' +
+            '<td>' + (it.desc || "-") + '</td>' +
+            '<td>' + (it.size || "-") + '</td>' +
+            '<td>' + actual + '</td>' +
+            '<td style="color:#fcd34d;font-weight:700">' + disp + '</td>' +
+            '<td style="color:' + (rem <= 5 ? "#f87171" : "#34d399") + ';font-weight:800">' + rem + '</td>' +
+            '<td><button type="button" class="btn btn-sky" style="padding:2px 7px;font-size:10px" onclick="updateFaRemainingCount(' + idx + ')">Update Rem.</button></td>' +
+          '</tr>';
+        }).join("") +
+        '</tbody></table>';
+    }
+  } else {
+    // Keep Medicine section intact
+    const medNames = Array.from(new Set(clinicState.medItems.map(function(i) { return i.name; })));
+    contentHtml +=
+      '<div style="display:flex;gap:8px;margin-bottom:10px">' +
+        '<button type="button" class="btn ' + (view === "ledger" ? "btn-sky" : "btn-dark") + '" style="flex:1;font-size:11px" onclick="openClinicInventoryModal(\'MED\', \'ledger\')">📋 Medicine Ledger</button>' +
+        '<button type="button" class="btn ' + (view === "add" ? "btn-green" : "btn-dark") + '" style="flex:1;font-size:11px" onclick="openClinicInventoryModal(\'MED\', \'add\')">➕ Add Medicine Supplies</button>' +
+      '</div>';
+    if (view === "add") {
+      contentHtml +=
+        '<datalist id="medNameSuggestions">' + medNames.map(function(n) { return '<option value="' + n + '">'; }).join("") + '</datalist>' +
+        '<div class="grid-2">' +
+          '<div class="field"><label>Date</label><input id="med_add_date" type="date" value="' + todayStr + '" /></div>' +
+          '<div class="field"><label>Type</label><select id="med_add_type"><option>Tablet</option><option>Capsule</option><option>Syrup / Liquid</option><option>Ointment / Cream</option><option>Drops</option></select></div>' +
+          '<div class="field"><label>Generic Name</label><input id="med_add_name" list="medNameSuggestions" /></div>' +
+          '<div class="field"><label>mg / Strength</label><input id="med_add_mg" placeholder="500 mg" /></div>' +
+        '</div>' +
+        '<div class="field"><label>Quantity to Add</label><input id="med_add_qty" type="number" min="1" /></div>' +
+        '<button type="button" class="btn btn-green" style="width:100%;padding:9px" onclick="submitAddClinicStock(\'MED\')">Add / Submit to Medicine Inventory</button>';
+    } else {
+      contentHtml +=
+        '<table><thead><tr><th>Date</th><th>Generic Name</th><th>Type</th><th>mg</th><th>Dispensed Qty</th><th>Remaining Qty</th><th>Action</th></tr></thead><tbody>' +
+        clinicState.medItems.map(function(it, idx) {
+          const remQty = (Number(it.added) || 0) - (Number(it.dispensed) || 0);
+          return '<tr><td>' + it.date + '</td><td style="color:#fff;font-weight:700">' + it.name + '</td><td>' + it.type + '</td><td>' + it.mg + '</td>' +
+            '<td><button type="button" class="btn btn-dark" style="padding:2px 8px;color:#38bdf8;font-weight:800" onclick="openDispenseHistoryModal(\'MED\', ' + idx + ')">' + it.dispensed + ' 📋</button></td>' +
+            '<td style="font-weight:800;color:' + (remQty <= 5 ? "#f87171" : "#34d399") + '">' + remQty + '</td>' +
+            '<td><button type="button" class="btn btn-sky" style="padding:2px 7px;font-size:10px" onclick="openDispenseFormModal(\'MED\', ' + idx + ')">Dispense</button></td></tr>';
+        }).join("") +
+        '</tbody></table>';
+    }
+  }
+
+  document.getElementById("modalBody").innerHTML = contentHtml;
+  document.getElementById("entryModal").classList.add("open");
+};
+
+function submitFaInventoryStock() {
+  const dt = document.getElementById("fa_add_date").value;
+  const name = document.getElementById("fa_add_name").value.trim();
+  const desc = document.getElementById("fa_add_desc").value.trim();
+  const size = document.getElementById("fa_add_size").value.trim();
+  const actual = Number(document.getElementById("fa_add_actual").value) || 0;
+  const rem = Number(document.getElementById("fa_add_rem").value) || 0;
+  if (!name) return alert("Enter Item Name.");
+
+  clinicState.faItems.unshift({ date: dt, name: name, desc: desc, size: size, actual: actual, remaining: rem });
+  saveClinicStateLocal();
+  openClinicInventoryModal("FA", "ledger");
+}
+
+function updateFaRemainingCount(idx) {
+  const it = clinicState.faItems.at(idx);
+  const newRem = prompt("Update physical Remaining Qty for " + it.name + " (Inventory Actual: " + (it.actual || it.added) + "):", it.remaining !== undefined ? it.remaining : it.added);
+  if (newRem === null) return;
+  it.actual = Number(it.actual !== undefined ? it.actual : it.added) || 0;
+  it.remaining = Math.max(0, Number(newRem) || 0);
+  it.date = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Manila" });
+  saveClinicStateLocal();
+  openClinicInventoryModal("FA", "ledger");
+}
+
+async function confirmFaPatientCase() {
+  const name = document.getElementById("fap_name").value.trim();
+  const dt = document.getElementById("fap_date").value;
+  const caseTxt = document.getElementById("fap_case").value.trim();
+  const attendant = document.getElementById("fap_att").value.trim();
+  if (!name || !caseTxt) return alert("Enter Name of Personnel and Case / Treatment.");
+
+  clinicState.patientCases.unshift({ name: name, date: dt, caseTxt: caseTxt, attendant: attendant });
+  saveClinicStateLocal();
+
+  if (sb && currentUser) {
+    await sb.from("hsse_logs").insert(new Array({
+      control_no: "MFI-DVO-HSSE-05-006",
+      module_code: "05",
+      report_name: "First-Aid Patient Case — " + name + " (" + dt + ")",
+      depot_location: "Depot 1 & 2",
+      status: "Complied",
+      remarks: "FA_PATIENT | Name: " + name + " | Date: " + dt + " | Case: " + caseTxt + " | FA Attendant: " + attendant,
+      submitted_by: currentUser.id
+    }));
+  }
+  await syncLogsFromSupabase();
+  await syncLiveChartData();
+  renderTable();
+  openClinicInventoryModal("FA", "patient");
+}
+
+// ============================================================
+// 19. CONSOLIDATED WSOR EXCEL EXPORT TAB & 3-PHOTO UPLOADS
+// ============================================================
+const _prevWsorModal = openFullWsorModal;
+openFullWsorModal = function(tab) {
+  if (tab === "excel") {
+    document.getElementById("modalTitle").textContent = "📊 Consolidated WSOR Ledger (OPEN & CLOSED History + Excel Export)";
+    document.getElementById("saveEntryBtn").style.display = "none";
+    document.getElementById("modalBody").innerHTML =
+      '<div style="display:flex;gap:8px;margin-bottom:10px">' +
+        '<button type="button" class="btn btn-dark" onclick="openFullWsorModal(\'open_new\')">← Back to WSOR Form</button>' +
+        '<button type="button" class="btn btn-green" style="flex:1" onclick="downloadConsolidatedWsorExcel()">📥 Download Full Consolidated WSOR Excel (.CSV)</button>' +
+      '</div>' +
+      '<table><thead><tr><th>WSOR No.</th><th>Date Inspected</th><th>Area</th><th>Vendor</th><th>Finding</th><th>Status</th><th>Action Taken</th><th>Date Closed</th><th>Duration</th></tr></thead><tbody>' +
+      (wsorRecords.length ? wsorRecords.map(function(w) {
+        return '<tr><td class="code-cell">' + w.wNo + '</td><td>' + w.dateInspected + '</td><td>' + w.area + '</td><td>' + w.vendor + '</td><td>' + w.finding + '</td>' +
+          '<td><span class="' + (w.status === "CLOSED" ? "pill-comp" : "pill-over") + '">' + w.status + '</span></td>' +
+          '<td>' + (w.actTaken || "Pending") + '</td><td>' + (w.closeDate || "-") + '</td><td>' + (w.duration !== undefined ? w.duration + "d" : "-") + '</td></tr>';
+      }).join("") : '<tr><td colspan="9" style="text-align:center;color:#64748b;padding:12px">No WSOR records logged yet.</td></tr>') +
+      '</tbody></table>';
+    document.getElementById("entryModal").classList.add("open");
+    return;
+  }
+  _prevWsorModal(tab);
+  const body = document.getElementById("modalBody");
+  if (body) {
+    const bar = document.createElement("div");
+    bar.style.marginTop = "8px";
+    bar.innerHTML = '<button type="button" class="btn btn-dark" style="width:100%" onclick="openFullWsorModal(\'excel\')">📊 Open Full Consolidated WSOR History &amp; Download Excel File (' + wsorRecords.length + ' Records)</button>';
+    body.appendChild(bar);
+    const f1 = document.getElementById("w_photo_find");
+    if (f1) f1.setAttribute("multiple", "multiple");
+    const f2 = document.getElementById("w_photo_act");
+    if (f2) f2.setAttribute("multiple", "multiple");
+  }
+};
+
+function downloadConsolidatedWsorExcel() {
+  const headers = new Array("WSOR No.", "Date Inspected", "Area Location", "Inspected By", "Vendor", "Responsible Person", "Findings / Observation", "Before Photo URL", "Recommendation", "Timeline", "Status", "Action Taken", "After Photo URL", "Date Complied", "Duration (Days)");
+  const rows = wsorRecords.map(function(w) {
+    return new Array(w.wNo, w.dateInspected, w.area, w.by, w.vendor, w.resp, w.finding, w.findPhoto || "", w.rec, w.timeline, w.status, w.actTaken || "", w.actPhoto || "", w.closeDate || "", w.duration !== undefined ? w.duration : "")
+      .map(function(c) { return '"' + String(c || "").replace(/"/g, '""') + '"'; }).join(",");
+  });
+  const csv = headers.join(",") + "\n" + rows.join("\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "MFI-DVO-HSSE-04-002_Consolidated_WSOR_" + new Date().toISOString().slice(0, 10) + ".csv";
+  a.click();
 }
 
 </script>
