@@ -1998,17 +1998,29 @@ function toggleGovGrid(event) {
   box.style.display = (box.style.display === 'block') ? 'none' : 'block';
 }
   function openGovPortal(type) {
-  const portals = {
+  const defaults = {
     dole: 'https://' + 'reports' + '.dole.gov.ph/',
     emb11: 'https://' + 'r11' + '.emb.gov.ph/online-application-2/',
     smr: 'https://' + 'client' + '.emb.gov.ph/smr/login',
     cmr: 'https://' + 'online' + '.emb.gov.ph/cmr/'
   };
-  if (portals[type]) {
-    window.open(portals[type], '_blank', 'noopener,noreferrer');
+  const saved = (typeof portalSettings !== 'undefined' && portalSettings.govLinks) ? portalSettings.govLinks : {};
+  const targetUrl = saved[type] || defaults[type];
+  if (targetUrl) {
+    window.open(targetUrl, '_blank', 'noopener,noreferrer');
   }
 }
 
+async function saveGovPortalLinks() {
+  portalSettings.govLinks = {
+    dole: document.getElementById('set_gl_dole').value.trim(),
+    emb11: document.getElementById('set_gl_emb11').value.trim(),
+    smr: document.getElementById('set_gl_smr').value.trim(),
+    cmr: document.getElementById('set_gl_cmr').value.trim()
+  };
+  await savePortalSettingsToCloud();
+  alert('Government Portal URLs saved & synced to cloud!');
+}
 
 document.addEventListener('click', function () {
   const box = document.getElementById('govReportorialBox');
@@ -2384,6 +2396,7 @@ async function openSettingsModal(tab) {
       '<button type="button" class="btn ' + (activeTab === "clean" ? "btn-red" : "btn-dark") + '" style="font-size:11px" onclick="openSettingsModal(\'clean\')">4. 🧹 Test Tagging &amp; Erase Data</button>' +
           '<button type="button" class="btn ' + (activeTab === "modules" ? "btn-sky" : "btn-dark") + '" style="font-size:11px" onclick="openSettingsModal(\'modules\')">5. 📚 Module Titles &amp; Subtitles</button>' +
           '<button type="button" class="btn ' + (activeTab === "terms" ? "btn-sky" : "btn-dark") + '" style="font-size:11px" onclick="openSettingsModal(\'terms\')">6. 📜 Terms &amp; Conditions</button>' +
+            '<button type="button" class="btn ' + (activeTab === "govlinks" ? "btn-sky" : "btn-dark") + '" style="font-size:11px" onclick="openSettingsModal(\'govlinks\')">7. 🏛 Gov\'t Portals</button>' +
     '</div>';
 
   let bodyHtml = tabsHtml;
@@ -2506,7 +2519,23 @@ async function openSettingsModal(tab) {
         '<p style="margin-bottom:0"><strong>4. Evidence &amp; Retention:</strong> Uploaded photos, scans, and PDF reports are archived in encrypted cloud storage categorized by module series (<code>MFI-DVO-HSSE-01</code> through <code>12</code>) for regulatory and internal Maersk regional audits.</p>' +
       '</div>';
   }
-
+  else if (activeTab === "govlinks") {
+    const gl = portalSettings.govLinks || {
+      dole: 'https://' + 'reports' + '.dole.gov.ph/',
+      emb11: 'https://' + 'r11' + '.emb.gov.ph/online-application-2/',
+      smr: 'https://' + 'client' + '.emb.gov.ph/smr/login',
+      cmr: 'https://' + 'online' + '.emb.gov.ph/cmr/'
+    };
+    bodyHtml +=
+      '<div style="background:#020617;border:1px solid #1e293b;border-radius:6px;padding:12px;">' +
+        '<div style="font-size:11px;font-weight:700;color:#38bdf8;margin-bottom:8px;">🏛 Government Reportorial Portal URLs (Live Cloud Sync)</div>' +
+        '<div class="field"><label>DOLE Compliance Portal URL</label><input id="set_gl_dole" type="text" value="' + gl.dole + '" /></div>' +
+        '<div class="field"><label>DENR-EMB RXI Portal URL</label><input id="set_gl_emb11" type="text" value="' + gl.emb11 + '" /></div>' +
+        '<div class="field"><label>EMB SMR Login URL</label><input id="set_gl_smr" type="text" value="' + gl.smr + '" /></div>' +
+        '<div class="field"><label>EMB CMR Login URL</label><input id="set_gl_cmr" type="text" value="' + gl.cmr + '" /></div>' +
+        '<button type="button" class="btn btn-green" style="width:100%;padding:9px;margin-top:8px;" onclick="saveGovPortalLinks()">Save Government Portal Links</button>' +
+      '</div>';
+  }
   document.getElementById("modalBody").innerHTML = bodyHtml;
   document.getElementById("entryModal").classList.add("open");
 }
