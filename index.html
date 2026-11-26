@@ -3191,7 +3191,8 @@ printRegisterRow = function(code) {
 // ============================================================
 // 15. 2-STAGE INCIDENT (+ LOG) & (+ CAPA / CLOSE) WITH 3 FILES
 // ============================================================
-let incidentRecords = JSON.parse(localStorage.getItem("mfi_incident_records") || "");
+let incidentRecords = new Array();
+try { const _i = localStorage.getItem("mfi_incident_records"); if (_i) incidentRecords = JSON.parse(_i); } catch (e) {}
 function saveIncidentLocal() { localStorage.setItem("mfi_incident_records", JSON.stringify(incidentRecords)); }
 
 openLaggingModal = function() {
