@@ -3413,7 +3413,12 @@ function renderDualDepotPtwList() {
   const badge = document.getElementById("ptwCompliantBadge");
   if (badge) badge.textContent = compCount + " / " + vendors.length + " Compliant";
 }
-setTimeout(renderDualDepotPtwList, 600);
+const _origRenderExec = renderExecDashboard;
+renderExecDashboard = function() {
+  _origRenderExec();
+  renderDualDepotPtwList();
+};
+renderDualDepotPtwList();
 
 async function markDepotPtwNA(vendor, depotKey) {
   dualDepotPtw[vendor][depotKey] = "N/A";
