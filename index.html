@@ -144,8 +144,8 @@
       <div class="brand">
         <div class="logo-box">★</div>
         <div>
-          <h2 style="font-size:16px;color:#fff">MAERSK FILIPINAS INC.</h2>
-          <div style="font-size:11px;color:#38bdf8">HSSE Live Portal • Depot 1 &amp; 2 Tibungco</div>
+                <h2 id="authCompanyName" style="font-size:16px;color:#fff">MAERSK FILIPINAS INC.</h2>
+      <div id="authCompanySub" style="font-size:11px;color:#38bdf8">HSSE Live Portal • Depot 1 &amp; 2 Tibungco</div>
         </div>
       </div>
 
@@ -186,16 +186,16 @@
       <div class="logo-box">★</div>
       <div>
         <div class="title-row">
-          <h1>MAERSK FILIPINAS INC. — LIVE HSSE PORTAL</h1>
-          <span class="series-badge">Series: MFI-DVO-HSSE</span>
+                   <h1 id="mainCompanyTitle">MAERSK FILIPINAS INC. — LIVE HSSE PORTAL</h1>
+          <span id="mainSeriesBadge" class="series-badge">Series: MFI-DVO-HSSE</span>
         </div>
-        <div class="subtitle">Container Depot 1 &amp; Depot 2 • Tibungco, Bunawan, Davao City</div>
+        <div id="mainCompanySubtitle" class="subtitle">Container Depot 1 &amp; Depot 2 • Tibungco, Bunawan, Davao City</div>
       </div>
     </div>
 
     <div class="weather-box">
       <div>
-        <div class="weather-label">Live Yard Weather • Tibungco</div>
+        <div id="mainWeatherLabel" class="weather-label">Live Yard Weather • Tibungco</div>
         <div class="weather-stats">
           <strong id="wTemp">--°C</strong>
           <span id="wWind">Wind: -- km/h</span>
@@ -211,9 +211,9 @@
       <button type="button" class="btn btn-dark" onclick="openVaultModal()">🗂️ File Vault &amp; History</button>
       <button type="button" class="btn btn-sky" id="toggleDashBtn" onclick="toggleExecPanel()">📊 Hide Analytics</button>
       <select id="globalDepotFilter" style="width:auto" onchange="renderTable()">
-        <option value="ALL">All Locations (Depot 1 &amp; 2)</option>
-        <option value="Depot 1">Depot 1 Only</option>
-        <option value="Depot 2">Depot 2 Only</option>
+               <option id="optClusterAll" value="ALL">All Locations (Depot 1 &amp; 2)</option>
+        <option id="optCluster1" value="Depot 1">Depot 1 Only</option>
+        <option id="optCluster2" value="Depot 2">Depot 2 Only</option>
       </select>
             <span id="liveManilaClock" style="font-family:monospace;font-size:11px;color:#bae6fd;background:#0f172a;border:1px solid #334155;padding:4px 8px;border-radius:6px"></span>
       <button type="button" id="settingsBtn" class="btn btn-sky" style="display:none" onclick="openSettingsModal('users')">⚙️ Settings</button>
@@ -2021,6 +2021,45 @@ async function saveGovPortalLinks() {
   await savePortalSettingsToCloud();
   alert('Government Portal URLs saved & synced to cloud!');
 }
+  function applyCompanyBranding() {
+  if (typeof portalSettings === 'undefined' || !portalSettings.branding) return;
+  const br = portalSettings.branding;
+  if (br.company) {
+    if (document.getElementById('authCompanyName')) document.getElementById('authCompanyName').textContent = br.company;
+    if (document.getElementById('mainCompanyTitle')) document.getElementById('mainCompanyTitle').textContent = br.company + ' — LIVE HSSE PORTAL';
+  }
+  if (br.loginSub && document.getElementById('authCompanySub')) document.getElementById('authCompanySub').textContent = br.loginSub;
+  if (br.subtitle && document.getElementById('mainCompanySubtitle')) document.getElementById('mainCompanySubtitle').textContent = br.subtitle;
+  if (br.series && document.getElementById('mainSeriesBadge')) document.getElementById('mainSeriesBadge').textContent = 'Series: ' + br.series;
+  if (br.weatherLoc && document.getElementById('mainWeatherLabel')) document.getElementById('mainWeatherLabel').textContent = 'Live Yard Weather • ' + br.weatherLoc;
+  if (br.cluster1 && br.cluster2) {
+    if (document.getElementById('optClusterAll')) document.getElementById('optClusterAll').textContent = 'All Locations (' + br.cluster1 + ' & ' + br.cluster2 + ')';
+    if (document.getElementById('optCluster1')) {
+      document.getElementById('optCluster1').value = br.cluster1;
+      document.getElementById('optCluster1').textContent = br.cluster1 + ' Only';
+    }
+    if (document.getElementById('optCluster2')) {
+      document.getElementById('optCluster2').value = br.cluster2;
+      document.getElementById('optCluster2').textContent = br.cluster2 + ' Only';
+    }
+  }
+}
+
+async function saveCompanyBranding() {
+  portalSettings.branding = {
+    company: document.getElementById('set_br_company').value.trim(),
+    subtitle: document.getElementById('set_br_subtitle').value.trim(),
+    loginSub: document.getElementById('set_br_loginsub').value.trim(),
+    series: document.getElementById('set_br_series').value.trim(),
+    weatherLoc: document.getElementById('set_br_weather').value.trim(),
+    cluster1: document.getElementById('set_br_c1').value.trim(),
+    cluster2: document.getElementById('set_br_c2').value.trim()
+  };
+  applyCompanyBranding();
+  await savePortalSettingsToCloud();
+  alert('Company, Address & Clusters saved & synced to cloud!');
+}
+
 
 document.addEventListener('click', function () {
   const box = document.getElementById('govReportorialBox');
@@ -2305,6 +2344,7 @@ let portalSettings = JSON.parse(localStorage.getItem("mfi_portal_settings") || "
 };
 
 function applyPortalSettings() {
+    if (typeof applyCompanyBranding === 'function') applyCompanyBranding();
   if (portalSettings.roleModules) {
     ROLE_SCOPES.management = portalSettings.roleModules.management || new Array("01", "02", "12");
     ROLE_SCOPES.operations = portalSettings.roleModules.operations || new Array("03", "04", "06", "07");
@@ -2397,6 +2437,7 @@ async function openSettingsModal(tab) {
           '<button type="button" class="btn ' + (activeTab === "modules" ? "btn-sky" : "btn-dark") + '" style="font-size:11px" onclick="openSettingsModal(\'modules\')">5. 📚 Module Titles &amp; Subtitles</button>' +
           '<button type="button" class="btn ' + (activeTab === "terms" ? "btn-sky" : "btn-dark") + '" style="font-size:11px" onclick="openSettingsModal(\'terms\')">6. 📜 Terms &amp; Conditions</button>' +
             '<button type="button" class="btn ' + (activeTab === "govlinks" ? "btn-sky" : "btn-dark") + '" style="font-size:11px" onclick="openSettingsModal(\'govlinks\')">7. 🏛 Gov\'t Portals</button>' +
+            '<button type="button" class="btn ' + (activeTab === "branding" ? "btn-sky" : "btn-dark") + '" style="font-size:11px" onclick="openSettingsModal(\'branding\')">8. 🏢 Company &amp; Clusters</button>' +
     '</div>';
 
   let bodyHtml = tabsHtml;
@@ -2534,6 +2575,33 @@ async function openSettingsModal(tab) {
         '<div class="field"><label>EMB SMR Login URL</label><input id="set_gl_smr" type="text" value="' + gl.smr + '" /></div>' +
         '<div class="field"><label>EMB CMR Login URL</label><input id="set_gl_cmr" type="text" value="' + gl.cmr + '" /></div>' +
         '<button type="button" class="btn btn-green" style="width:100%;padding:9px;margin-top:8px;" onclick="saveGovPortalLinks()">Save Government Portal Links</button>' +
+      '</div>';
+  }
+    else if (activeTab === "branding") {
+    const br = portalSettings.branding || {
+      company: "MAERSK FILIPINAS INC.",
+      subtitle: "Container Depot 1 & Depot 2 • Tibungco, Bunawan, Davao City",
+      loginSub: "HSSE Live Portal • Depot 1 & 2 Tibungco",
+      series: "MFI-DVO-HSSE",
+      weatherLoc: "Tibungco",
+      cluster1: "Depot 1",
+      cluster2: "Depot 2"
+    };
+    bodyHtml +=
+      '<div style="background:#020617;border:1px solid #1e293b;border-radius:6px;padding:12px;">' +
+        '<div style="font-size:11px;font-weight:700;color:#38bdf8;margin-bottom:8px;">🏢 Company, Address &amp; Site Clusters (Live Cloud Sync)</div>' +
+        '<div class="field"><label>Company Name</label><input id="set_br_company" type="text" value="' + br.company + '" /></div>' +
+        '<div class="field"><label>Site / Facility Address (Header Subtitle)</label><input id="set_br_subtitle" type="text" value="' + br.subtitle + '" /></div>' +
+        '<div class="grid-2">' +
+          '<div class="field"><label>Login Screen Subtitle</label><input id="set_br_loginsub" type="text" value="' + br.loginSub + '" /></div>' +
+          '<div class="field"><label>Document Control Series Prefix</label><input id="set_br_series" type="text" value="' + br.series + '" /></div>' +
+        '</div>' +
+        '<div class="grid-3">' +
+          '<div class="field"><label>Weather Location Label</label><input id="set_br_weather" type="text" value="' + br.weatherLoc + '" /></div>' +
+          '<div class="field"><label>Cluster 1 Name</label><input id="set_br_c1" type="text" value="' + br.cluster1 + '" /></div>' +
+          '<div class="field"><label>Cluster 2 Name</label><input id="set_br_c2" type="text" value="' + br.cluster2 + '" /></div>' +
+        '</div>' +
+        '<button type="button" class="btn btn-green" style="width:100%;padding:9px;margin-top:8px;" onclick="saveCompanyBranding()">Save Company &amp; Clusters</button>' +
       '</div>';
   }
   document.getElementById("modalBody").innerHTML = bodyHtml;
