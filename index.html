@@ -257,7 +257,7 @@
 
     <main>
       <div class="toolbar">
-        <input id="searchInput" style="width:300px" oninput="renderTable()" type="text" placeholder="Search Control No., Report Name, ISO/DOLE Ref..." />
+       <input id="searchInput" style="width:200px" oninput="renderTable()" type="text" placeholder="Search Control No., Report Name, ISO/DOLE Ref..." />
            <div class="quick-btns" id="quickEntryBar" style="display:flex;gap:6px;flex-wrap:wrap">
       <button type="button" class="btn btn-sky" data-mod="08" onclick="openClinicInventoryModal('FA', 'ledger')">+ Clinic &amp; FA Inventory</button>
       <button type="button" class="btn btn-green" data-mod="12" onclick="openCountryGlobalModal()">+ Country Global Task</button>
@@ -269,8 +269,8 @@
       <button type="button" class="btn btn-green" data-mod="06" onclick="openEntryModal('MANPOWER')">+ Manpower (159)</button>
 
       <!-- Gov't Reportorial 2x2 Prompt Box -->
-      <div class="gov-portal-container" style="position: relative; display: inline-block;">
-        <button type="button" class="btn btn-sky" id="govReportorialBtn" onclick="toggleGovGrid(event)">🏛 Gov't Reportorial ▾</button>
+      <div class="gov-portal-container" data-mod="02" style="position: relative; display: inline-block;">
+  <button type="button" class="btn btn-sky" data-mod="02" id="govReportorialBtn" onclick="toggleGovGrid(event)">🏛 Gov't Reportorial ▾</button>
 
         <div id="govReportorialBox" style="
           display: none;
@@ -286,24 +286,22 @@
           box-shadow: 0 10px 25px rgba(0, 0, 0, 0.6);
           z-index: 9999;
         ">
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
-            <a href="https://dole.gov.ph" target="_blank" rel="noopener noreferrer" class="btn btn-sky" style="text-align:center; text-decoration:none; padding:10px;">
-              DOLE Compliance Portal
-            </a>
-            <a href="https://emb.gov.ph" target="_blank" rel="noopener noreferrer" class="btn btn-sky" style="text-align:center; text-decoration:none; padding:10px;">
-              DENR-EMB RXI Portal
-            </a>
-            <a href="https://emb.gov.ph" target="_blank" rel="noopener noreferrer" class="btn btn-sky" style="text-align:center; text-decoration:none; padding:10px;">
-              EMB SMR Login
-            </a>
-            <a href="https://emb.gov.ph" target="_blank" rel="noopener noreferrer" class="btn btn-sky" style="text-align:center; text-decoration:none; padding:10px;">
-              EMB CMR Login
-            </a>
-          </div>
-        </div>
-      </div>
+           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+      <button type="button" onclick="openGovPortal('dole')" class="btn btn-sky" style="text-align:center; padding:10px;">
+        DOLE Compliance Portal
+      </button>
+      <button type="button" onclick="openGovPortal('emb11')" class="btn btn-sky" style="text-align:center; padding:10px;">
+        DENR-EMB RXI Portal
+      </button>
+      <button type="button" onclick="openGovPortal('smr')" class="btn btn-sky" style="text-align:center; padding:10px;">
+        EMB SMR Login
+      </button>
+      <button type="button" onclick="openGovPortal('cmr')" class="btn btn-sky" style="text-align:center; padding:10px;">
+        EMB CMR Login
+      </button>
     </div>
-
+  </div>
+</div>
       </div>
 
       <div id="execDashboardPanel" class="exec-panel">
@@ -1999,6 +1997,18 @@ function toggleGovGrid(event) {
   const box = document.getElementById('govReportorialBox');
   box.style.display = (box.style.display === 'block') ? 'none' : 'block';
 }
+  function openGovPortal(type) {
+  const portals = {
+    dole: 'https://' + 'reports' + '.dole.gov.ph/',
+    emb11: 'https://' + 'r11' + '.emb.gov.ph/online-application-2/',
+    smr: 'https://' + 'client' + '.emb.gov.ph/smr/login',
+    cmr: 'https://' + 'online' + '.emb.gov.ph/cmr/'
+  };
+  if (portals[type]) {
+    window.open(portals[type], '_blank', 'noopener,noreferrer');
+  }
+}
+
 
 document.addEventListener('click', function () {
   const box = document.getElementById('govReportorialBox');
