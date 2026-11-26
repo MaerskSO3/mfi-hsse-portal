@@ -3377,43 +3377,49 @@ function getNextUnifiedPtwSeries() {
 }
 
 function renderDualDepotPtwList() {
- const box = document.getElementById("ptwList");
+  const box = document.getElementById("ptwVendorBody");
   if (!box) return;
   const vendors = Object.keys(dualDepotPtw);
-  let compCount = 0;
 
   box.innerHTML = vendors.map(function(v) {
     const st = dualDepotPtw[v] || { d1: "Pending", d2: "Pending" };
     const d1Ok = st.d1 === "Uploaded" || st.d1 === "N/A";
     const d2Ok = st.d2 === "Uploaded" || st.d2 === "N/A";
-    const allOk = d1Ok && d2Ok;
-    if (allOk) compCount++;
 
-    return '<div class="vendor-row" style="flex-direction:column;align-items:stretch;gap:3px;padding:4px 6px">' +
-      '<div style="display:flex;justify-content:space-between;align-items:center">' +
-        '<strong style="color:#fff">' + v + '</strong>' +
-        '<span class="' + (allOk ? "pill-comp" : "pill-over") + '">' + (allOk ? "Compliant" : "Pending PTW") + '</span>' +
-      '</div>' +
-      '<div style="display:flex;justify-content:space-between;align-items:center;font-size:10px">' +
-        '<span>Depot 1: <strong style="color:' + (d1Ok ? "#34d399" : "#fca5a5") + '">' + st.d1 + '</strong></span>' +
-        '<span style="display:flex;gap:3px">' +
-          '<button type="button" class="btn btn-sky" style="padding:1px 5px;font-size:9px" onclick="openDualPtwUploadModal(\'' + v + '\', \'Depot 1\')">Upload D1</button>' +
-          '<button type="button" class="btn btn-dark" style="padding:1px 5px;font-size:9px" onclick="markDepotPtwNA(\'' + v + '\', \'d1\')">N/A</button>' +
-        '</span>' +
-      '</div>' +
-      '<div style="display:flex;justify-content:space-between;align-items:center;font-size:10px">' +
-        '<span>Depot 2: <strong style="color:' + (d2Ok ? "#34d399" : "#fca5a5") + '">' + st.d2 + '</strong></span>' +
-        '<span style="display:flex;gap:3px">' +
-          '<button type="button" class="btn btn-sky" style="padding:1px 5px;font-size:9px" onclick="openDualPtwUploadModal(\'' + v + '\', \'Depot 2\')">Upload D2</button>' +
-          '<button type="button" class="btn btn-dark" style="padding:1px 5px;font-size:9px" onclick="markDepotPtwNA(\'' + v + '\', \'d2\')">N/A</button>' +
-        '</span>' +
-      '</div>' +
-    '</div>';
+    return '<tr>' +
+      '<td style="font-weight:700;color:#fff">' + v + '</td>' +
+      '<td>' +
+        '<div style="display:flex;align-items:center;gap:4px">' +
+          '<span style="font-size:10px;color:#94a3b8">D1:</span>' +
+          '<span class="' + (d1Ok ? "pill-comp" : "pill-over") + '" style="font-size:9px;padding:1px 6px">' + (d1Ok ? st.d1 : "Non-Compliant") + '</span>' +
+          '<select style="padding:1px 4px;font-size:10px;width:92px" onchange="handleDepotPtwSelect(\'' + v + '\', \'d1\', this.value); this.value=\'\'">' +
+            '<option value="">Action...</option>' +
+            '<option value="UPLOAD">Upload PTW</option>' +
+            '<option value="NA">N/A (Compliant)</option>' +
+          '</select>' +
+        '</div>' +
+      '</td>' +
+      '<td>' +
+        '<div style="display:flex;align-items:center;gap:4px">' +
+          '<span style="font-size:10px;color:#94a3b8">D2:</span>' +
+          '<span class="' + (d2Ok ? "pill-comp" : "pill-over") + '" style="font-size:9px;padding:1px 6px">' + (d2Ok ? st.d2 : "Non-Compliant") + '</span>' +
+          '<select style="padding:1px 4px;font-size:10px;width:92px" onchange="handleDepotPtwSelect(\'' + v + '\', \'d2\', this.value); this.value=\'\'">' +
+            '<option value="">Action...</option>' +
+            '<option value="UPLOAD">Upload PTW</option>' +
+            '<option value="NA">N/A (Compliant)</option>' +
+          '</select>' +
+        '</div>' +
+      '</td>' +
+    '</tr>';
   }).join("");
-
-  const badge = document.getElementById("ptwCompliantBadge");
-  if (badge) badge.textContent = compCount + " / " + vendors.length + " Compliant";
 }
+
+function handleDepotPtwSelect(vendor, depotKey, action) {
+  if (!action) return;
+  if (action === "NA") markDepotPtwNA(vendor, depotKey);
+  else if (action === "UPLOAD") openDualPtwUploadModal(vendor, depotKey === "d1" ? "Depot 1" : "Depot 2");
+}
+
 const _origRenderExec = renderExecDashboard;
 renderExecDashboard = function() {
   _origRenderExec();
@@ -3489,7 +3495,7 @@ async function submitDualPtwUpload(vendor, depotLabel) {
 }
 
 // Structured KTC & KUDOS Rescue Job Order Modal (Shares Continuous PTW Control Series)
-addRescueJobOrder = function(vendorName) {
+logRescueJobOrder = function(vendorName) {
   const todayStr = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Manila" });
   const seriesNo = getNextUnifiedPtwSeries();
   document.getElementById("modalTitle").textContent = "🚨 " + vendorName + " Rescue Job Order (Continuous PTW Series)";
@@ -3524,7 +3530,7 @@ async function submitRescueJoModal(vendorName) {
     if (!up.error) fileUrl = sb.storage.from("hsse-evidence").getPublicUrl(p).data.publicUrl;
   }
 
-  if (vendorName === "KTC") hsseMetrics.rescueKtc++;
+   if (vendorName.includes("KTC")) hsseMetrics.rescueKtc++;
   else hsseMetrics.rescueKudos++;
   renderExecDashboard();
 
