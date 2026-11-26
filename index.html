@@ -258,16 +258,52 @@
     <main>
       <div class="toolbar">
         <input id="searchInput" style="width:300px" oninput="renderTable()" type="text" placeholder="Search Control No., Report Name, ISO/DOLE Ref..." />
-        <div class="quick-btns" id="quickEntryBar" style="display:flex;gap:6px;flex-wrap:wrap">
-          <button type="button" class="btn btn-sky" data-mod="08" onclick="openClinicInventoryModal('FA', 'ledger')">+ Clinic &amp; FA Inventory</button>
-          <button type="button" class="btn btn-green" data-mod="12" onclick="openCountryGlobalModal()">+ Country Global Task</button>
-          <button type="button" class="btn btn-sky" data-mod="08" onclick="openEntryModal('BP')">+ BP Monitoring</button>
-          <button type="button" class="btn btn-sky" data-mod="04" onclick="openEntryModal('WSOR')">+ WSOR Walkthrough</button>
-          <button type="button" class="btn btn-sky" data-mod="03" onclick="openEntryModal('JHA')">+ JHA Register</button>
-          <button type="button" class="btn btn-sky" data-mod="08" onclick="openEntryModal('TBT')">+ Toolbox Talk</button>
-          <button type="button" class="btn btn-sky" data-mod="09" onclick="openEntryModal('FIRE')">+ Fire Ex Check</button>
-          <button type="button" class="btn btn-green" data-mod="06" onclick="openEntryModal('MANPOWER')">+ Manpower (159)</button>
+           <div class="quick-btns" id="quickEntryBar" style="display:flex;gap:6px;flex-wrap:wrap">
+      <button type="button" class="btn btn-sky" data-mod="08" onclick="openClinicInventoryModal('FA', 'ledger')">+ Clinic &amp; FA Inventory</button>
+      <button type="button" class="btn btn-green" data-mod="12" onclick="openCountryGlobalModal()">+ Country Global Task</button>
+      <button type="button" class="btn btn-sky" data-mod="08" onclick="openEntryModal('BP')">+ BP Monitoring</button>
+      <button type="button" class="btn btn-sky" data-mod="04" onclick="openEntryModal('WSOR')">+ WSOR Walkthrough</button>
+      <button type="button" class="btn btn-sky" data-mod="03" onclick="openEntryModal('JHA')">+ JHA Register</button>
+      <button type="button" class="btn btn-sky" data-mod="08" onclick="openEntryModal('TBT')">+ Toolbox Talk</button>
+      <button type="button" class="btn btn-sky" data-mod="09" onclick="openEntryModal('FIRE')">+ Fire Ex Check</button>
+      <button type="button" class="btn btn-green" data-mod="06" onclick="openEntryModal('MANPOWER')">+ Manpower (159)</button>
+
+      <!-- Gov't Reportorial 2x2 Prompt Box -->
+      <div class="gov-portal-container" style="position: relative; display: inline-block;">
+        <button type="button" class="btn btn-sky" id="govReportorialBtn" onclick="toggleGovGrid(event)">🏛 Gov't Reportorial ▾</button>
+
+        <div id="govReportorialBox" style="
+          display: none;
+          position: absolute;
+          right: 0;
+          top: calc(100% + 8px);
+          background-color: #0d1821;
+          border: 1.5px solid #243b4a;
+          border-radius: 8px;
+          padding: 16px 20px;
+          width: 420px;
+          max-width: 90vw;
+          box-shadow: 0 10px 25px rgba(0, 0, 0, 0.6);
+          z-index: 9999;
+        ">
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <a href="https://dole.gov.ph" target="_blank" rel="noopener noreferrer" class="btn btn-sky" style="text-align:center; text-decoration:none; padding:10px;">
+              DOLE Compliance Portal
+            </a>
+            <a href="https://emb.gov.ph" target="_blank" rel="noopener noreferrer" class="btn btn-sky" style="text-align:center; text-decoration:none; padding:10px;">
+              DENR-EMB RXI Portal
+            </a>
+            <a href="https://emb.gov.ph" target="_blank" rel="noopener noreferrer" class="btn btn-sky" style="text-align:center; text-decoration:none; padding:10px;">
+              EMB SMR Login
+            </a>
+            <a href="https://emb.gov.ph" target="_blank" rel="noopener noreferrer" class="btn btn-sky" style="text-align:center; text-decoration:none; padding:10px;">
+              EMB CMR Login
+            </a>
+          </div>
         </div>
+      </div>
+    </div>
+
       </div>
 
       <div id="execDashboardPanel" class="exec-panel">
@@ -1958,6 +1994,16 @@ async function saveLaggingIncidentLog() {
   await syncLiveChartData();
   alert(type + " logged under " + ctrlNo + ", stored in Module 05/" + folderSlug + " folder, and chart updated!");
 }
+function toggleGovGrid(event) {
+  event.stopPropagation();
+  const box = document.getElementById('govReportorialBox');
+  box.style.display = (box.style.display === 'block') ? 'none' : 'block';
+}
+
+document.addEventListener('click', function () {
+  const box = document.getElementById('govReportorialBox');
+  if (box) box.style.display = 'none';
+});
 
 // ============================================================
 // 6. FA - MEDICINE SECTION (CLINIC & FA INVENTORY + DISPENSING)
