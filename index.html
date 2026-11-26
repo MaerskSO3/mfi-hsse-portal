@@ -1492,7 +1492,7 @@ async function saveCountryGlobalSubmit() {
   const remarks = "CGT_KEY=" + refKey + " | STATUS_TAG=" + autoTag + " | Due Date: " + due + " | Desc: " + desc + " | Action To Take: " + act;
   if (sb && currentUser) {
     const res = await sb.from("hsse_logs").insert(new Array({
-      control_no: "MFI-DVO-HSSE-12-002",
+      control_no: "MFI-DVO-HSSE-12-001",
       module_code: "12",
       report_name: "Country Global Task [" + refKey + "] — " + autoTag,
       depot_location: loc,
@@ -1533,7 +1533,7 @@ async function saveCountryGlobalComply() {
   const mergedRemarks = "CGT_KEY=" + refKey + " | STATUS_TAG=COMPLIANT (Green) | Date Complied: " + compDate + " | Action Taker: " + taker + " | Action Taken: " + compDesc + prevData;
   if (sb && currentUser) {
     const res = await sb.from("hsse_logs").insert(new Array({
-      control_no: "MFI-DVO-HSSE-12-002",
+      control_no: "MFI-DVO-HSSE-12-001",
       module_code: "12",
       report_name: "Country Global Task [" + refKey + "] — COMPLIANT",
       depot_location: loc,
