@@ -91,7 +91,7 @@
 
         /* Executive Dashboard & KPI Grid */
     .exec-panel { background: #060b14; border-bottom: 1px solid #1e293b; padding: 12px 14px; overflow-y: auto; max-height: 54vh; flex-shrink: 0; }
-    .kpi-strip { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; margin-bottom: 12px; }
+        .kpi-strip { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-bottom: 12px; }
     .kpi-card { background: #0f172a; border: 1px solid #1e293b; border-radius: 8px; padding: 10px 12px; }
     .kpi-title { font-size: 10px; text-transform: uppercase; color: #94a3b8; font-weight: 700; }
     .kpi-val { font-size: 20px; font-weight: 800; color: #fff; margin-top: 4px; font-family: monospace; }
@@ -277,10 +277,7 @@
       </div>
       <div class="kpi-val" id="kpiManHours">33,072</div>
     </div>
-    <div class="kpi-card" style="border-left:3px solid #10b981">
-      <div class="kpi-title">Lost Time Injuries (LTI)</div>
-      <div class="kpi-val" id="kpiLti" style="color:#34d399">0</div>
-    </div>
+    
     <div class="kpi-card" style="border-left:3px solid #10b981">
       <div class="kpi-title">DOLE DIFR (Freq. Rate)</div>
       <div class="kpi-val" id="kpiDifr">0.00</div>
@@ -435,6 +432,8 @@ let currentModalContext = null;
 
 const ROLE_SCOPES = {
   safety_officer: ["01","02","03","04","05","06","07","08","09","10","11","12"],
+    safety_champion: ["01","02","03","04","05","06","07","08","09","10","11","12"],
+  clinic_nurse: ["05","08"],
   management: ["01","02","12"],
   operations: ["03","04","06","07"],
   viewer: ["NONE"]
@@ -761,7 +760,7 @@ function renderTable() {
   const locFilter = document.getElementById("globalDepotFilter").value;
   const allowedMods = ROLE_SCOPES[currentRole] || ["NONE"];
 
-    const statusRank = { "URGENT": 1, "Due Soon": 2, "Complied": 3 };
+      const statusRank = { "URGENT": 1, "Due Soon": 2, "Complied": 3, "N/A": 4 };
   const freqRank = { "Daily": 1, "Per Shift": 1, "Per Task": 2, "Per Activity": 2, "Per Incident": 2, "Weekly": 3, "Monthly": 4, "Quarterly": 5, "Semi-Annual": 6, "Annual": 7 };
 
   const filtered = registers.filter(function(r) {
@@ -781,13 +780,18 @@ function renderTable() {
   document.getElementById("statOk").textContent = registers.filter(function(r) { return r.status === "Complied"; }).length;
   document.getElementById("statUrgent").textContent = registers.filter(function(r) { return r.status === "URGENT"; }).length;
 
+    const freqChoices = new Array("Daily", "Per Shift / Task", "Weekly", "Bi-Weekly", "Monthly", "Quarterly", "Semi-Annual", "Annual", "Per Incident / As Needed", "N/A");
+
   document.getElementById("registerTableBody").innerHTML = filtered.map(function(r) {
-    const badgeClass = r.status === "URGENT" ? "badge-urgent" : r.status === "Due Soon" ? "badge-due" : "badge-ok";
+    const isNA = r.status === "N/A" || r.freq === "N/A";
+    const badgeClass = isNA ? "" : (r.status === "URGENT" ? "badge-urgent" : r.status === "Due Soon" ? "badge-due" : "badge-ok");
+    const badgeStyle = isNA ? 'style="background:#1e293b;color:#94a3b8;border:1px solid #475569"' : "";
     const canUploadToModule = allowedMods.includes(r.modCode);
-    const isSafetyOfficer = currentRole === "safety_officer";
+    const isOwner = currentRole === "safety_officer";
+    const isChamp = currentRole === "safety_champion";
 
     let actionBtn = '<span style="color:#64748b;font-size:11px">View Only</span>';
-    if (isSafetyOfficer) {
+    if (isOwner || isChamp) {
       actionBtn = '<button type="button" class="btn btn-sky" style="padding:4px 8px;font-size:11px" onclick="openUpdateModal(\'' + r.code + '\', true)">Edit / Upload</button>';
     } else if (canUploadToModule) {
       actionBtn = '<button type="button" class="btn btn-green" style="padding:4px 8px;font-size:11px" onclick="openUpdateModal(\'' + r.code + '\', false)">+ Upload File</button>';
@@ -797,18 +801,26 @@ function renderTable() {
       ? '<a href="' + r.fileUrl + '" target="_blank" class="scan-link">📎 Open File / Scan</a>'
       : '<span style="color:#64748b;font-style:italic">None attached</span>';
 
+    const optsList = freqChoices.includes(r.freq) ? freqChoices : new Array(r.freq).concat(freqChoices);
+    const freqCell = isOwner
+      ? '<select style="padding:3px 5px;font-size:11px;width:130px" onchange="changeRegisterFrequency(\'' + r.code + '\', this.value)">' +
+          optsList.map(function(f) { return '<option value="' + f + '" ' + (r.freq === f ? "selected" : "") + '>' + f + '</option>'; }).join("") +
+        '</select>'
+      : r.freq;
+
     return '<tr>' +
       '<td class="code-cell">' + r.code + '</td>' +
       '<td style="color:#94a3b8;font-size:11px">' + r.module + '</td>' +
       '<td style="font-weight:600;color:#fff">' + r.name + '</td>' +
       '<td style="color:#94a3b8;font-size:11px">' + r.ref + '</td>' +
-      '<td>' + r.freq + '</td>' +
+      '<td>' + freqCell + '</td>' +
       '<td style="white-space:nowrap">' + r.location + '</td>' +
-      '<td><span class="badge ' + badgeClass + '">' + r.status + '</span></td>' +
+      '<td><span class="badge ' + badgeClass + '" ' + badgeStyle + '>' + (isNA ? "N/A" : r.status) + '</span></td>' +
       '<td>' + fileCell + '</td>' +
       '<td style="text-align:right;white-space:nowrap">' + actionBtn +
-      ' <button type="button" class="btn btn-dark" style="padding:4px 8px;font-size:11px" onclick="printRegisterRow(\'' + r.code + '\')">PDF</button></td></tr>';
+        ' <button type="button" class="btn btn-dark" style="padding:4px 8px;font-size:11px" onclick="printRegisterRow(\'' + r.code + '\')">PDF</button></td></tr>';
   }).join("");
+
 }
 
 function openUpdateModal(code, canEditExisting) {
@@ -1171,15 +1183,16 @@ function renderExecDashboard() {
   initWindyRadar();
   document.getElementById("ptwWeekLabel").textContent = "Week of " + getMondayStart().toISOString().slice(0, 10);
 
-  const totalRegs = registers.length || 1;
-  const compRegs = registers.filter(function(r) { return r.status === "Complied"; }).length;
-  const dueRegs = registers.filter(function(r) { return r.status === "Due Soon"; }).length;
-  const overRegs = registers.filter(function(r) { return r.status === "URGENT"; }).length;
+    const activeRegs = registers.filter(function(r) { return r.status !== "N/A" && r.freq !== "N/A"; });
+  const totalRegs = activeRegs.length || 1;
+  const compRegs = activeRegs.filter(function(r) { return r.status === "Complied"; }).length;
+  const dueRegs = activeRegs.filter(function(r) { return r.status === "Due Soon"; }).length;
+  const overRegs = activeRegs.filter(function(r) { return r.status === "URGENT"; }).length;
   const difr = ((hsseMetrics.lagging.lti * 1000000) / (hsseMetrics.safeManHours || 1)).toFixed(2);
   const disr = ((hsseMetrics.lagging.lostDays * 1000000) / (hsseMetrics.safeManHours || 1)).toFixed(2);
 
   document.getElementById("kpiManHours").textContent = hsseMetrics.safeManHours.toLocaleString();
-  document.getElementById("kpiLti").textContent = hsseMetrics.lagging.lti;
+    if (document.getElementById("kpiLti")) document.getElementById("kpiLti").textContent = hsseMetrics.lagging.lti;
   document.getElementById("kpiDifr").textContent = difr;
   document.getElementById("kpiDisr").textContent = disr;
   document.getElementById("kpiCompPct").textContent = ((compRegs / totalRegs) * 100).toFixed(2) + "%";
@@ -2309,6 +2322,7 @@ async function openSettingsModal(tab) {
       '<button type="button" class="btn ' + (activeTab === "roles" ? "btn-sky" : "btn-dark") + '" style="font-size:11px" onclick="openSettingsModal(\'roles\')">2. 🔐 Role Restrictions</button>' +
       '<button type="button" class="btn ' + (activeTab === "series" ? "btn-sky" : "btn-dark") + '" style="font-size:11px" onclick="openSettingsModal(\'series\')">3. 🔢 Series &amp; KPI Rules</button>' +
       '<button type="button" class="btn ' + (activeTab === "clean" ? "btn-red" : "btn-dark") + '" style="font-size:11px" onclick="openSettingsModal(\'clean\')">4. 🧹 Test Tagging &amp; Erase Data</button>' +
+          '<button type="button" class="btn ' + (activeTab === "modules" ? "btn-sky" : "btn-dark") + '" style="font-size:11px" onclick="openSettingsModal(\'modules\')">5. 📚 Module Titles &amp; Subtitles</button>' +
     '</div>';
 
   let bodyHtml = tabsHtml;
@@ -2330,6 +2344,7 @@ async function openSettingsModal(tab) {
               '<option value="operations">Operations (Modules 03, 04, 06, 07)</option>' +
               '<option value="management">Management (Modules 01, 02, 12)</option>' +
               '<option value="clinic_nurse">Clinic / Nurse (Modules 05, 08)</option>' +
+                  '<option value="safety_champion">Safety Champion (All Modules 01–12, No System Ownership)</option>' +
               '<option value="safety_officer">Safety Officer (Full Admin)</option>' +
             '</select>' +
           '</div>' +
@@ -2354,6 +2369,7 @@ async function openSettingsModal(tab) {
                 '<option value="operations" ' + (u.role === "operations" ? "selected" : "") + '>Operations</option>' +
                 '<option value="management" ' + (u.role === "management" ? "selected" : "") + '>Management</option>' +
                 '<option value="clinic_nurse" ' + (u.role === "clinic_nurse" ? "selected" : "") + '>Clinic / Nurse</option>' +
+                             '<option value="safety_champion" ' + (u.role === "safety_champion" ? "selected" : "") + '>Safety Champion</option>' +
                 '<option value="safety_officer" ' + (u.role === "safety_officer" ? "selected" : "") + '>Safety Officer</option>' +
               '</select>') +
           '</td>' +
@@ -2400,6 +2416,24 @@ async function openSettingsModal(tab) {
           '<button type="button" class="btn btn-red" style="flex:1" onclick="eraseAllEntriesToZero()">2. Erase ALL Entries (Start From Zero)</button>' +
         '</div>' +
       '</div>';
+  }
+    else if (activeTab === "modules") {
+    const modCodes = new Array("01","02","03","04","05","06","07","08","09","10","11","12");
+    bodyHtml +=
+      '<p style="font-size:11px;color:#94a3b8;margin-bottom:8px">Edit the official Title and Subtitle / Scope for each module (01–12). Changes immediately update the sidebar, register table, and File Vault:</p>' +
+      '<table><thead><tr><th>Code</th><th>Official Module Title</th><th>Subtitle / Scope Description</th></tr></thead><tbody>' +
+      modCodes.map(function(c) {
+        const sample = registers.find(function(r) { return r.modCode === c; });
+        const curTitle = (portalSettings.customModules && portalSettings.customModules[c] && portalSettings.customModules[c].title) || (sample ? sample.module : c + " - Module");
+        const curSub = (portalSettings.customModules && portalSettings.customModules[c] && portalSettings.customModules[c].sub) || "";
+        return '<tr>' +
+          '<td class="code-cell">' + c + '</td>' +
+          '<td><input id="mod_t_' + c + '" value="' + curTitle.replace(/"/g, '&quot;') + '" /></td>' +
+          '<td><input id="mod_s_' + c + '" value="' + curSub.replace(/"/g, '&quot;') + '" placeholder="Subtitle / ISO / DOLE scope..." /></td>' +
+        '</tr>';
+      }).join("") +
+      '</tbody></table>' +
+      '<button type="button" class="btn btn-green" style="width:100%;padding:9px;margin-top:8px" onclick="saveCustomModuleTitles()">Save Module Titles &amp; Subtitles</button>';
   }
 
   document.getElementById("modalBody").innerHTML = bodyHtml;
@@ -2571,6 +2605,528 @@ function generateNextModuleSeries(baseControlNo) {
     if (window.sb && !window.sb._seriesWrapped) patchSeries(window.sb);
   }, 400);
 })();
+// ============================================================
+// 10. OSH COMMITTEE FREQUENCY CONTROL (+ N/A) & MODULE TITLES
+// ============================================================
+async function changeRegisterFrequency(code, newFreq) {
+  const reg = registers.find(function(r) { return r.code === code; });
+  if (!reg) return;
+  reg.freq = newFreq;
+  if (newFreq === "N/A") {
+    reg.status = "N/A";
+  } else if (reg.status === "N/A") {
+    reg.status = "Due Soon";
+  }
+
+  portalSettings.customFreqs = portalSettings.customFreqs || {};
+  portalSettings.customFreqs[code] = { freq: reg.freq, status: reg.status };
+  await savePortalSettingsToCloud();
+  renderTable();
+  renderExecDashboard();
+  if (typeof renderHsseCalendar === "function") renderHsseCalendar();
+}
+
+function applySavedCustomFreqsAndModules() {
+  if (portalSettings.customFreqs) {
+    Object.keys(portalSettings.customFreqs).forEach(function(code) {
+      const reg = registers.find(function(r) { return r.code === code; });
+      if (reg) {
+        reg.freq = portalSettings.customFreqs[code].freq;
+        if (reg.freq === "N/A") reg.status = "N/A";
+      }
+    });
+  }
+  if (portalSettings.customModules) {
+    registers.forEach(function(r) {
+      const cm = portalSettings.customModules[r.modCode];
+      if (cm && cm.title) r.module = cm.title;
+    });
+  }
+}
+applySavedCustomFreqsAndModules();
+
+async function saveCustomModuleTitles() {
+  const modCodes = new Array("01","02","03","04","05","06","07","08","09","10","11","12");
+  portalSettings.customModules = portalSettings.customModules || {};
+  modCodes.forEach(function(c) {
+    const tEl = document.getElementById("mod_t_" + c);
+    const sEl = document.getElementById("mod_s_" + c);
+    if (tEl) {
+      portalSettings.customModules[c] = {
+        title: tEl.value.trim(),
+        sub: sEl ? sEl.value.trim() : ""
+      };
+    }
+  });
+  applySavedCustomFreqsAndModules();
+  await savePortalSettingsToCloud();
+  renderSidebar();
+  renderTable();
+  alert("Module Titles & Subtitles updated across the entire portal!");
+}
+
+// ============================================================
+// 11. 2-STAGE WSOR WALKTHROUGH (1. LOG FINDING -> 2. CLOSE OPEN)
+// ============================================================
+let wsorRecords = JSON.parse(localStorage.getItem("mfi_wsor_records") || "[]");
+function saveWsorLocal() { localStorage.setItem("mfi_wsor_records", JSON.stringify(wsorRecords)); }
+
+function openFullWsorModal(tab) {
+  const mode = tab || "open_new";
+  const todayStr = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Manila" });
+  document.getElementById("modalTitle").textContent = "📋 HSSE Walkthrough Observation Report (WSOR) — 2-Stage Tracker";
+  document.getElementById("saveEntryBtn").style.display = "none";
+
+  const openList = wsorRecords.filter(function(w) { return w.status === "OPEN"; });
+
+  let html =
+    '<div style="display:flex;gap:8px;margin-bottom:10px;background:#020617;padding:4px;border-radius:6px">' +
+      '<button type="button" class="btn ' + (mode === "open_new" ? "btn-sky" : "btn-dark") + '" style="flex:1" onclick="openFullWsorModal(\'open_new\')">1. Log New WSOR Finding (OPEN)</button>' +
+      '<button type="button" class="btn ' + (mode === "close_open" ? "btn-green" : "btn-dark") + '" style="flex:1" onclick="openFullWsorModal(\'close_open\')">2. Close Open WSOR (' + openList.length + ' Open)</button>' +
+    '</div>';
+
+  if (mode === "open_new") {
+    html +=
+      '<div class="grid-2">' +
+        '<div class="field"><label>WSOR No.</label><input id="w_no" value="WSOR-' + Date.now().toString().slice(-6) + '" /></div>' +
+        '<div class="field"><label>Date Inspected</label><input id="w_date" type="date" value="' + todayStr + '" /></div>' +
+        '<div class="field"><label>Area Location</label><select id="w_area"><option>Depot 1 - Container Yard</option><option>Depot 2 - Container Yard</option><option>Workshop / Repair Area</option><option>Reefer Area</option><option>Washing Bay</option><option>Gate / Office / Canteen</option></select></div>' +
+        '<div class="field"><label>Inspected By</label><input id="w_by" placeholder="Inspector Full Name" /></div>' +
+        '<div class="field"><label>Vendor</label><select id="w_vendor"><option>PBCS</option><option>G-FORTUNE</option><option>MRAY</option><option>RMS</option><option>KTC</option><option>KUDOS</option><option>SHIELDS</option><option>MAERSK</option></select></div>' +
+        '<div class="field"><label>Responsible Person</label><input id="w_resp" placeholder="Vendor Supervisor / PIC" /></div>' +
+      '</div>' +
+      '<div class="field"><label>Findings / Observation</label><textarea id="w_find" rows="2" placeholder="Describe unsafe act, unsafe condition, or observation..."></textarea></div>' +
+      '<div class="field"><label>Evidential Photo (Findings / Observation)</label><input id="w_photo_find" type="file" accept="image/*,.pdf" /></div>' +
+      '<div class="grid-2">' +
+        '<div class="field"><label>Recommendation / Action Plan Required</label><input id="w_rec" placeholder="Corrective action required..." /></div>' +
+        '<div class="field"><label>Timeline (Target Date)</label><input id="w_time" type="date" value="' + todayStr + '" /></div>' +
+      '</div>' +
+      '<button type="button" class="btn btn-sky" style="width:100%;padding:9px" onclick="saveNewOpenWsor()">Submit &amp; Save OPEN WSOR Finding</button>';
+  } else {
+    if (!openList.length) {
+      html += '<p style="text-align:center;color:#34d399;padding:18px">✅ No OPEN WSOR findings pending closure!</p>';
+    } else {
+      html +=
+        '<div class="field"><label>Select Open WSOR Finding to Close</label>' +
+          '<select id="w_close_select" onchange="previewOpenWsorDetails()">' +
+            openList.map(function(w) {
+              return '<option value="' + w.wNo + '">' + w.wNo + ' | ' + w.vendor + ' (' + w.dateInspected + ') — ' + w.finding.slice(0, 45) + '</option>';
+            }).join("") +
+          '</select>' +
+        '</div>' +
+        '<div id="w_open_preview" style="background:#020617;border:1px solid #334155;border-radius:6px;padding:8px;font-size:11px;color:#cbd5e1;margin-bottom:8px"></div>' +
+        '<div class="grid-2">' +
+          '<div class="field"><label>Date Complied / WSOR Closed</label><input id="w_close_date" type="date" value="' + todayStr + '" /></div>' +
+          '<div class="field"><label>Evidential Photo (Action Taken)</label><input id="w_photo_act" type="file" accept="image/*,.pdf" /></div>' +
+        '</div>' +
+        '<div class="field"><label>Action Taken Description</label><textarea id="w_act_taken" rows="2" placeholder="Describe corrective action completed to close this WSOR..."></textarea></div>' +
+        '<button type="button" class="btn btn-green" style="width:100%;padding:9px" onclick="submitCloseOpenWsor()">Close WSOR &amp; Mark COMPLIANT</button>';
+    }
+  }
+
+  document.getElementById("modalBody").innerHTML = html;
+  if (mode === "close_open" && openList.length) previewOpenWsorDetails();
+  document.getElementById("entryModal").classList.add("open");
+}
+
+function previewOpenWsorDetails() {
+  const sel = document.getElementById("w_close_select");
+  const box = document.getElementById("w_open_preview");
+  if (!sel || !box) return;
+  const item = wsorRecords.find(function(w) { return w.wNo === sel.value; });
+  if (!item) return;
+  box.innerHTML =
+    '<div><strong>Date Inspected:</strong> ' + item.dateInspected + ' | <strong>Area:</strong> ' + item.area + ' | <strong>Vendor:</strong> ' + item.vendor + ' (' + item.resp + ')</div>' +
+    '<div style="margin-top:4px"><strong>Finding:</strong> ' + item.finding + '</div>' +
+    '<div style="margin-top:4px"><strong>Recommendation:</strong> ' + item.rec + ' | <strong>Target Timeline:</strong> ' + item.timeline + '</div>' +
+    (item.findPhoto ? '<div style="margin-top:4px"><a href="' + item.findPhoto + '" target="_blank" class="scan-link">📎 View Initial Finding Photo</a></div>' : '');
+}
+
+async function saveNewOpenWsor() {
+  const wNo = document.getElementById("w_no").value.trim();
+  const dateInsp = document.getElementById("w_date").value;
+  const area = document.getElementById("w_area").value;
+  const by = document.getElementById("w_by").value.trim();
+  const vendor = document.getElementById("w_vendor").value;
+  const resp = document.getElementById("w_resp").value.trim();
+  const finding = document.getElementById("w_find").value.trim();
+  const rec = document.getElementById("w_rec").value.trim();
+  const timeline = document.getElementById("w_time").value;
+  if (!finding) return alert("Please enter Findings / Observation.");
+
+  let findPhotoUrl = "";
+  const f1 = document.getElementById("w_photo_find");
+  if (f1 && f1.files && f1.files.length > 0 && sb) {
+    const file = f1.files.item(0);
+    const p1 = "04/WSOR_" + wNo + "_OPEN_" + Date.now() + "_" + file.name;
+    const u1 = await sb.storage.from("hsse-evidence").upload(p1, file);
+    if (!u1.error) findPhotoUrl = sb.storage.from("hsse-evidence").getPublicUrl(p1).data.publicUrl;
+  }
+
+  wsorRecords.unshift({
+    wNo: wNo, dateInspected: dateInsp, area: area, by: by, vendor: vendor, resp: resp,
+    finding: finding, rec: rec, timeline: timeline, findPhoto: findPhotoUrl, status: "OPEN"
+  });
+  saveWsorLocal();
+
+  const summary = "WSOR No: " + wNo + " | Status: OPEN | Date Inspected: " + dateInsp + " | Area: " + area + " | Vendor: " + vendor + " | Resp: " + resp + " | Findings: " + finding + " | Timeline: " + timeline;
+  if (sb && currentUser) {
+    await sb.from("hsse_logs").insert(new Array({
+      control_no: "MFI-DVO-HSSE-04-002",
+      module_code: "04",
+      report_name: "WSOR Finding OPEN [" + wNo + "] — " + vendor,
+      depot_location: area.includes("Depot 2") ? "Depot 2" : "Depot 1",
+      status: "Due Soon",
+      file_url: findPhotoUrl,
+      remarks: summary,
+      submitted_by: currentUser.id
+    }));
+  }
+  closeModal("entryModal");
+  await syncLiveChartData();
+  alert("WSOR " + wNo + " logged as OPEN! Return anytime to '2. Close Open WSOR' to upload action evidence.");
+}
+
+async function submitCloseOpenWsor() {
+  const wNo = document.getElementById("w_close_select").value;
+  const closeDate = document.getElementById("w_close_date").value;
+  const actTaken = document.getElementById("w_act_taken").value.trim();
+  const item = wsorRecords.find(function(w) { return w.wNo === wNo; });
+  if (!item || !actTaken) return alert("Please enter Action Taken Description.");
+
+  let actPhotoUrl = "";
+  const f2 = document.getElementById("w_photo_act");
+  if (f2 && f2.files && f2.files.length > 0 && sb) {
+    const file = f2.files.item(0);
+    const p2 = "04/WSOR_" + wNo + "_CLOSED_" + Date.now() + "_" + file.name;
+    const u2 = await sb.storage.from("hsse-evidence").upload(p2, file);
+    if (!u2.error) actPhotoUrl = sb.storage.from("hsse-evidence").getPublicUrl(p2).data.publicUrl;
+  }
+
+  const d1 = new Date(item.dateInspected);
+  const d2 = new Date(closeDate);
+  const durDays = Math.max(0, Math.round((d2 - d1) / (1000 * 60 * 60 * 24)));
+
+  item.status = "CLOSED";
+  item.closeDate = closeDate;
+  item.actTaken = actTaken;
+  item.actPhoto = actPhotoUrl;
+  item.duration = durDays;
+  saveWsorLocal();
+
+  const merged = "WSOR No: " + wNo + " | Status: CLOSED (COMPLIANT) | Date Inspected: " + item.dateInspected + " | Date Complied: " + closeDate + " | Duration: " + durDays + " days | Vendor: " + item.vendor + " | Findings: " + item.finding + " | Action Taken: " + actTaken;
+  if (sb && currentUser) {
+    await sb.from("hsse_logs").insert(new Array({
+      control_no: "MFI-DVO-HSSE-04-002",
+      module_code: "04",
+      report_name: "WSOR CLOSED [" + wNo + "] — " + item.vendor,
+      depot_location: item.area.includes("Depot 2") ? "Depot 2" : "Depot 1",
+      status: "Complied",
+      file_url: actPhotoUrl || item.findPhoto || "",
+      remarks: merged,
+      submitted_by: currentUser.id
+    }));
+  }
+  closeModal("entryModal");
+  await syncLogsFromSupabase();
+  await syncLiveChartData();
+  renderTable();
+  alert("WSOR " + wNo + " CLOSED & marked COMPLIANT (" + durDays + " days duration)!");
+}
+
+// ============================================================
+// 12. 2-TAB HEALTH MONITORING (+ BP MONITORING) & VENDOR CHART
+// ============================================================
+let bpRecords = JSON.parse(localStorage.getItem("mfi_bp_records") || "[]");
+function saveBpLocal() { localStorage.setItem("mfi_bp_records", JSON.stringify(bpRecords)); }
+let bpChartInstance = null;
+
+const _prevOpenEntryModal = openEntryModal;
+openEntryModal = function(formType) {
+  if (formType === "BP") return openBpMonitoringModal("new", "ALL");
+  if (formType === "MANPOWER") return openMonthlyManpowerModal("update", "2026", "ALL");
+  return _prevOpenEntryModal(formType);
+};
+
+function calcAgeFromDob(dobStr) {
+  if (!dobStr) return "";
+  const dob = new Date(dobStr);
+  const diff = Date.now() - dob.getTime();
+  return Math.max(0, Math.floor(diff / (1000 * 60 * 60 * 24 * 365.25)));
+}
+
+function classifyBpReading(bpStr) {
+  const parts = (bpStr || "").split("/");
+  const sys = Number(parts.at(0)) || 0;
+  const dia = Number(parts.at(1)) || 0;
+  if (sys > 180 || dia > 120) return "Hypertensive Crisis";
+  if (sys >= 140 || dia >= 90) return "Hypertension Stage 2";
+  if ((sys >= 130 && sys <= 139) || (dia >= 80 && dia <= 89)) return "Hypertension Stage 1";
+  if (sys >= 120 && sys <= 129 && dia < 80) return "Elevated";
+  return "Normal";
+}
+
+function openBpMonitoringModal(tab, vendorFilter) {
+  const mode = tab || "new";
+  const vFilt = vendorFilter || "ALL";
+  const todayStr = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Manila" });
+  const vendors = new Array("MAERSK", "PBCS", "G-FORTUNE", "MRAY", "RMS", "SHIELDS", "KTC", "KUDOS");
+
+  document.getElementById("modalTitle").textContent = "🩺 Health Monitoring — Personnel Blood Pressure & Vitals (MFI-DVO-HSSE-08-005)";
+  document.getElementById("saveEntryBtn").style.display = "none";
+
+  let html =
+    '<div style="display:flex;gap:8px;margin-bottom:10px;background:#020617;padding:4px;border-radius:6px">' +
+      '<button type="button" class="btn ' + (mode === "new" ? "btn-sky" : "btn-dark") + '" style="flex:1" onclick="openBpMonitoringModal(\'new\', \'' + vFilt + '\')">1. BP New Data (Encode Vitals)</button>' +
+      '<button type="button" class="btn ' + (mode === "summary" ? "btn-green" : "btn-dark") + '" style="flex:1" onclick="openBpMonitoringModal(\'summary\', \'' + vFilt + '\')">2. BP Summarized Data &amp; Chart (' + bpRecords.length + ')</button>' +
+    '</div>';
+
+  if (mode === "new") {
+    const knownNames = Array.from(new Set(bpRecords.map(function(b) { return b.name; })));
+    html +=
+      '<datalist id="bpNameSuggestions">' + knownNames.map(function(n) { return '<option value="' + n + '">'; }).join("") + '</datalist>' +
+      '<div class="grid-2">' +
+        '<div class="field"><label>Date Conducted</label><input id="bp_date" type="date" value="' + todayStr + '" /></div>' +
+        '<div class="field"><label>Contractor / Vendor / Subcon</label><select id="bp_vendor">' + vendors.map(function(v) { return '<option>' + v + '</option>'; }).join("") + '</select></div>' +
+        '<div class="field"><label>Personnel Full Name (Auto-Suggests)</label><input id="bp_name" list="bpNameSuggestions" placeholder="Type or select personnel..." oninput="autofillBpPerson()" /></div>' +
+        '<div class="field"><label>Birthdate</label><input id="bp_dob" type="date" onchange="document.getElementById(\'bp_age\').value = calcAgeFromDob(this.value)" /></div>' +
+        '<div class="field"><label>Age (Auto-Computed)</label><input id="bp_age" type="number" placeholder="Age" /></div>' +
+        '<div class="field"><label>Weight (kg)</label><input id="bp_weight" type="number" step="0.1" placeholder="e.g., 68.5" /></div>' +
+        '<div class="field"><label>Blood Pressure (mmHg)</label><input id="bp_val" placeholder="e.g., 120/80" /></div>' +
+        '<div class="field"><label>Pulse Rate (bpm)</label><input id="bp_pulse" type="number" placeholder="e.g., 76" /></div>' +
+        '<div class="field"><label>Body Temperature (°C)</label><input id="bp_temp" type="number" step="0.1" value="36.5" /></div>' +
+        '<div class="field"><label>SpO2 (%)</label><input id="bp_spo2" type="number" value="98" /></div>' +
+      '</div>' +
+      '<div class="grid-2">' +
+        '<div class="field"><label>Personnel Conducted (Safety / First-Aid / Clinic)</label><input id="bp_by" placeholder="Full Name of Attendant" /></div>' +
+        '<div class="field"><label>Upload Hardcopy / Softcopy BP Log (Optional)</label><input id="bp_file" type="file" accept=".pdf,image/*,.xlsx" /></div>' +
+      '</div>' +
+      '<button type="button" class="btn btn-sky" style="width:100%;padding:9px" onclick="saveBpVitalEntry()">Save Personnel BP Record &amp; Update Chart</button>';
+  } else {
+    const allGroups = new Array("ALL").concat(vendors);
+    const filteredBp = bpRecords.filter(function(b) { return vFilt === "ALL" || b.vendor === vFilt; });
+
+    html +=
+      '<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px">' +
+        allGroups.map(function(g) {
+          return '<button type="button" class="btn ' + (vFilt === g ? "btn-sky" : "btn-dark") + '" style="padding:3px 8px;font-size:10px" onclick="openBpMonitoringModal(\'summary\', \'' + g + '\')">' + (g === "ALL" ? "ALL Vendors" : g) + '</button>';
+        }).join("") +
+      '</div>' +
+      '<div style="background:#020617;border:1px solid #1e293b;border-radius:6px;padding:8px;margin-bottom:8px;height:150px"><canvas id="bpCategoryCanvas"></canvas></div>' +
+      '<table><thead><tr><th>Date</th><th>Vendor</th><th>Name</th><th>Age/DOB</th><th>Wt</th><th>BP (Category)</th><th>Pulse</th><th>Temp</th><th>SpO2</th><th>Conducted By</th></tr></thead><tbody>' +
+      (filteredBp.length ? filteredBp.map(function(b) {
+        const cat = classifyBpReading(b.bp);
+        const col = cat === "Normal" ? "#34d399" : (cat === "Elevated" ? "#fcd34d" : "#f87171");
+        return '<tr><td>' + b.date + '</td><td>' + b.vendor + '</td><td style="color:#fff;font-weight:700">' + b.name + '</td><td>' + b.age + ' (' + (b.dob || "-") + ')</td><td>' + b.weight + 'kg</td><td style="color:' + col + ';font-weight:700">' + b.bp + ' (' + cat + ')</td><td>' + b.pulse + '</td><td>' + b.temp + '°C</td><td>' + b.spo2 + '%</td><td>' + b.by + '</td></tr>';
+      }).join("") : '<tr><td colspan="10" style="text-align:center;color:#64748b;padding:12px">No BP records encoded for this selection yet.</td></tr>') +
+      '</tbody></table>';
+  }
+
+  document.getElementById("modalBody").innerHTML = html;
+  document.getElementById("entryModal").classList.add("open");
+
+  if (mode === "summary") {
+    const filteredBp = bpRecords.filter(function(b) { return vFilt === "ALL" || b.vendor === vFilt; });
+    const cats = new Array("Normal", "Elevated", "Hypertension Stage 1", "Hypertension Stage 2", "Hypertensive Crisis");
+    const counts = cats.map(function(c) { return filteredBp.filter(function(b) { return classifyBpReading(b.bp) === c; }).length; });
+    const ctx = document.getElementById("bpCategoryCanvas");
+    if (ctx) {
+      if (bpChartInstance) bpChartInstance.destroy();
+      bpChartInstance = new Chart(ctx, {
+        type: "bar",
+        data: { labels: cats, datasets: new Array({ label: "Personnel Count (" + vFilt + ")", data: counts, backgroundColor: new Array("#10b981", "#f59e0b", "#f97316", "#ef4444", "#991b1b"), borderRadius: 4 }) },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: "#cbd5e1", font: { size: 10 } } }, y: { beginAtZero: true, ticks: { color: "#94a3b8", stepSize: 1 } } } }
+      });
+    }
+  }
+}
+
+function autofillBpPerson() {
+  const val = document.getElementById("bp_name").value.trim().toLowerCase();
+  const match = bpRecords.find(function(b) { return b.name.toLowerCase() === val; });
+  if (match) {
+    if (match.vendor) document.getElementById("bp_vendor").value = match.vendor;
+    if (match.dob) {
+      document.getElementById("bp_dob").value = match.dob;
+      document.getElementById("bp_age").value = calcAgeFromDob(match.dob);
+    }
+    if (match.weight) document.getElementById("bp_weight").value = match.weight;
+  }
+}
+
+async function saveBpVitalEntry() {
+  const rec = {
+    date: document.getElementById("bp_date").value,
+    vendor: document.getElementById("bp_vendor").value,
+    name: document.getElementById("bp_name").value.trim(),
+    dob: document.getElementById("bp_dob").value,
+    age: document.getElementById("bp_age").value,
+    weight: document.getElementById("bp_weight").value,
+    bp: document.getElementById("bp_val").value.trim(),
+    pulse: document.getElementById("bp_pulse").value,
+    temp: document.getElementById("bp_temp").value,
+    spo2: document.getElementById("bp_spo2").value,
+    by: document.getElementById("bp_by").value.trim()
+  };
+  if (!rec.name || !rec.bp) return alert("Please enter Personnel Name and Blood Pressure (e.g., 120/80).");
+
+  bpRecords.unshift(rec);
+  saveBpLocal();
+
+  let fileUrl = "";
+  const fInp = document.getElementById("bp_file");
+  if (fInp && fInp.files && fInp.files.length > 0 && sb) {
+    const f = fInp.files.item(0);
+    const path = "08/BP/MFI-DVO-HSSE-08-005_" + rec.date + "_" + Date.now() + "_" + f.name;
+    const up = await sb.storage.from("hsse-evidence").upload(path, f);
+    if (!up.error) fileUrl = sb.storage.from("hsse-evidence").getPublicUrl(path).data.publicUrl;
+  }
+
+  const cat = classifyBpReading(rec.bp);
+  const summary = "BP_LOG | Date: " + rec.date + " | Vendor: " + rec.vendor + " | Name: " + rec.name + " | BP: " + rec.bp + " (" + cat + ") | Pulse: " + rec.pulse + " | Temp: " + rec.temp + " | SpO2: " + rec.spo2 + "% | Conducted By: " + rec.by;
+  if (sb && currentUser) {
+    await sb.from("hsse_logs").insert(new Array({
+      control_no: "MFI-DVO-HSSE-08-005",
+      module_code: "08",
+      report_name: "BP Monitoring [" + rec.vendor + "] — " + rec.name + " (" + rec.bp + ")",
+      depot_location: "Depot 1 & 2",
+      status: "Complied",
+      file_url: fileUrl,
+      remarks: summary,
+      submitted_by: currentUser.id
+    }));
+  }
+  await syncLogsFromSupabase();
+  await syncLiveChartData();
+  renderTable();
+  openBpMonitoringModal("summary", rec.vendor);
+}
+
+// ============================================================
+// 13. 2-TAB MONTHLY MANPOWER UPDATE & TREND CHART (+ MANPOWER)
+// ============================================================
+let monthlyManpowerData = JSON.parse(localStorage.getItem("mfi_monthly_manpower") || "{}");
+function saveMonthlyMpLocal() { localStorage.setItem("mfi_monthly_manpower", JSON.stringify(monthlyManpowerData)); }
+let mpTrendChart = null;
+
+function openMonthlyManpowerModal(tab, yearSel, vendorSel) {
+  const mode = tab || "update";
+  const yr = yearSel || "2026";
+  const vSel = vendorSel || "ALL";
+  const vendors = new Array("MAERSK", "PBCS", "G-FORTUNE", "MRAY", "RMS", "SHIELDS", "KTC", "KUDOS");
+  const months = new Array("January","February","March","April","May","June","July","August","September","October","November","December");
+
+  document.getElementById("modalTitle").textContent = "👥 Manpower Monthly Summary & Trend Chart (MFI-DVO-HSSE-06-001)";
+  document.getElementById("saveEntryBtn").style.display = "none";
+
+  let html =
+    '<div style="display:flex;gap:8px;margin-bottom:10px;background:#020617;padding:4px;border-radius:6px">' +
+      '<button type="button" class="btn ' + (mode === "update" ? "btn-sky" : "btn-dark") + '" style="flex:1" onclick="openMonthlyManpowerModal(\'update\', \'' + yr + '\', \'' + vSel + '\')">1. Monthly Total Update</button>' +
+      '<button type="button" class="btn ' + (mode === "trend" ? "btn-green" : "btn-dark") + '" style="flex:1" onclick="openMonthlyManpowerModal(\'trend\', \'' + yr + '\', \'' + vSel + '\')">2. Chart Trend of Manpower</button>' +
+    '</div>';
+
+  if (mode === "update") {
+    html +=
+      '<div class="grid-2">' +
+        '<div class="field"><label>Year</label><select id="mmp_year">' + new Array("2026","2027","2028").map(function(y) { return '<option ' + (y === yr ? "selected" : "") + '>' + y + '</option>'; }).join("") + '</select></div>' +
+        '<div class="field"><label>Month</label><select id="mmp_month">' + months.map(function(m) { return '<option>' + m + '</option>'; }).join("") + '</select></div>' +
+      '</div>' +
+      '<table><thead><tr><th>Vendor / Contractor</th><th>Monthly Total Headcount</th></tr></thead><tbody>' +
+      vendors.map(function(v) {
+        return '<tr><td style="color:#fff;font-weight:700">' + v + '</td><td><input type="number" min="0" id="mmp_v_' + v + '" value="0" oninput="recalcMonthlyMpSum()" /></td></tr>';
+      }).join("") +
+      '</tbody></table>' +
+      '<div class="grid-2" style="margin-top:6px">' +
+        '<div class="field"><label>Upload Monthly Manpower Summary Sheet (Optional)</label><input id="mmp_file" type="file" accept=".pdf,.xlsx,image/*" /></div>' +
+        '<div style="display:flex;align-items:center;justify-content:space-between;background:#020617;padding:8px 12px;border-radius:6px;border:1px solid #1e293b">' +
+          '<span>ALL Vendors Total: <strong id="mmp_all_total" style="color:#38bdf8;font-size:15px">0</strong></span>' +
+          '<button type="button" class="btn btn-green" onclick="saveMonthlyManpowerUpdate()">Save Monthly Update</button>' +
+        '</div>' +
+      '</div>';
+  } else {
+    const allV = new Array("ALL").concat(vendors);
+    html +=
+      '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px">' +
+        new Array("2026","2027","2028").map(function(y) {
+          return '<button type="button" class="btn ' + (yr === y ? "btn-green" : "btn-dark") + '" style="padding:3px 9px;font-size:11px" onclick="openMonthlyManpowerModal(\'trend\', \'' + y + '\', \'' + vSel + '\')">' + y + '</button>';
+        }).join("") +
+        '<span style="color:#475569">|</span>' +
+        allV.map(function(v) {
+          return '<button type="button" class="btn ' + (vSel === v ? "btn-sky" : "btn-dark") + '" style="padding:3px 8px;font-size:10px" onclick="openMonthlyManpowerModal(\'trend\', \'' + yr + '\', \'' + v + '\')">' + (v === "ALL" ? "ALL Vendors" : v) + '</button>';
+        }).join("") +
+      '</div>' +
+      '<div style="background:#020617;border:1px solid #1e293b;border-radius:6px;padding:10px;height:210px"><canvas id="monthlyMpTrendCanvas"></canvas></div>';
+  }
+
+  document.getElementById("modalBody").innerHTML = html;
+  document.getElementById("entryModal").classList.add("open");
+
+  if (mode === "trend") {
+    const seriesVals = months.map(function(m) {
+      const rec = (monthlyManpowerData[yr] && monthlyManpowerData[yr][m]) || {};
+      if (vSel === "ALL") {
+        return vendors.reduce(function(acc, v) { return acc + (Number(rec[v]) || 0); }, 0);
+      }
+      return Number(rec[vSel]) || 0;
+    });
+    const ctx = document.getElementById("monthlyMpTrendCanvas");
+    if (ctx) {
+      if (mpTrendChart) mpTrendChart.destroy();
+      mpTrendChart = new Chart(ctx, {
+        type: "line",
+        data: { labels: months.map(function(m) { return m.slice(0, 3); }), datasets: new Array({ label: yr + " Manpower (" + vSel + ")", data: seriesVals, borderColor: "#38bdf8", backgroundColor: "rgba(56,189,248,0.2)", fill: true, tension: 0.3 }) },
+        options: { responsive: true, maintainAspectRatio: false, scales: { x: { ticks: { color: "#cbd5e1" } }, y: { beginAtZero: true, ticks: { color: "#94a3b8" } } } }
+      });
+    }
+  }
+}
+
+function recalcMonthlyMpSum() {
+  const vendors = new Array("MAERSK", "PBCS", "G-FORTUNE", "MRAY", "RMS", "SHIELDS", "KTC", "KUDOS");
+  const tot = vendors.reduce(function(acc, v) { return acc + (Number(document.getElementById("mmp_v_" + v).value) || 0); }, 0);
+  document.getElementById("mmp_all_total").textContent = tot.toLocaleString();
+}
+
+async function saveMonthlyManpowerUpdate() {
+  const yr = document.getElementById("mmp_year").value;
+  const mo = document.getElementById("mmp_month").value;
+  const vendors = new Array("MAERSK", "PBCS", "G-FORTUNE", "MRAY", "RMS", "SHIELDS", "KTC", "KUDOS");
+
+  monthlyManpowerData[yr] = monthlyManpowerData[yr] || {};
+  monthlyManpowerData[yr][mo] = {};
+  let total = 0;
+  vendors.forEach(function(v) {
+    const val = Number(document.getElementById("mmp_v_" + v).value) || 0;
+    monthlyManpowerData[yr][mo][v] = val;
+    total += val;
+  });
+  saveMonthlyMpLocal();
+
+  let fileUrl = "";
+  const fInp = document.getElementById("mmp_file");
+  if (fInp && fInp.files && fInp.files.length > 0 && sb) {
+    const f = fInp.files.item(0);
+    const path = "06/Manpower/MFI-DVO-HSSE-06-001_" + yr + "_" + mo + "_" + Date.now() + "_" + f.name;
+    const up = await sb.storage.from("hsse-evidence").upload(path, f);
+    if (!up.error) fileUrl = sb.storage.from("hsse-evidence").getPublicUrl(path).data.publicUrl;
+  }
+
+  if (sb && currentUser) {
+    await sb.from("hsse_logs").insert(new Array({
+      control_no: "MFI-DVO-HSSE-06-001",
+      module_code: "06",
+      report_name: "Monthly Manpower Update (" + mo + " " + yr + ") — Total: " + total,
+      depot_location: "Depot 1 & 2",
+      status: "Complied",
+      file_url: fileUrl,
+      remarks: "MONTHLY_MP | Year: " + yr + " | Month: " + mo + " | Total: " + total,
+      submitted_by: currentUser.id
+    }));
+  }
+  await syncLogsFromSupabase();
+  await syncLiveChartData();
+  openMonthlyManpowerModal("trend", yr, "ALL");
+}
 
 </script>
 </body>
