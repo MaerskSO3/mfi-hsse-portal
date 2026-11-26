@@ -119,6 +119,13 @@
     .rem-item { font-size: 10px; padding: 4px 6px; border-radius: 4px; margin-bottom: 4px; background: #0f172a; border-left: 3px solid #f59e0b; color: #e2e8f0; line-height: 1.3; }
     .rem-item.urgent { border-left-color: #ef4444; background: rgba(239,68,68,0.12); }
     .rem-item.ok { border-left-color: #10b981; }
+        /* Exact 1920x1080 Full-Dashboard Fit on 1366x768 Laptop Screens */
+    @media (max-width: 1450px) {
+      html { zoom: 0.74; }
+      body, .app-shell { height: 135vh !important; overflow: hidden !important; }
+      .exec-panel { max-height: 76vh !important; overflow-y: auto !important; }
+      .table-wrap { flex: 1 !important; overflow-y: auto !important; }
+    }
     @media print {
       body * { visibility: hidden; }
       #printArea, #printArea * { visibility: visible; }
