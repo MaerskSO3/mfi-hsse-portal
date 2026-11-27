@@ -2,15 +2,14 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
   <title>Maersk Filipinas Inc. | Live HSSE Reportorial Portal</title>
   <script>
   (function(){var s=document.createElement("script");s.src="https://"+"cdn.jsdelivr.net"+"/npm/chart.js";document.head.appendChild(s);})();
 </script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-    body { background: #020617; color: #f1f5f9; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
-    
+    body { background: #020617; color: #f1f5f9; min-height: 100vh; height: auto; display: flex; flex-direction: column; overflow-x: hidden; overflow-y: auto; }
     #authScreen { position: fixed; inset: 0; background: radial-gradient(circle at top, #00243d, #020617 70%); display: flex; align-items: center; justify-content: center; z-index: 100; padding: 16px; }
     .auth-card { background: #0f172a; border: 1px solid #1e293b; border-radius: 12px; width: 100%; max-width: 420px; padding: 28px; box-shadow: 0 25px 50px rgba(0,0,0,0.7); }
     .auth-tabs { display: flex; gap: 8px; margin: 18px 0; background: #020617; padding: 4px; border-radius: 8px; }
@@ -133,7 +132,15 @@
       #printArea table { width: 100%; border-collapse: collapse; margin-top: 12px; }
       #printArea th, #printArea td { border: 1px solid #cbd5e1; padding: 6px 8px; text-align: left; font-size: 11px; color: #0f172a !important; }
       #printArea th { background: #f1f5f9 !important; font-weight: 700; }
-    }
+    }/* STEP 1: UNIVERSAL RESPONSIVE & SCROLLBAR FIX */
+@media (max-width: 1023px) {
+  header { flex-direction: column !important; align-items: stretch !important; height: auto !important; }
+}
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: #020617; }
+::-webkit-scrollbar-thumb { background: #2b4168; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #3b82f6; }
+
   </style>
 </head>
 <body>
