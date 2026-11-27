@@ -89,7 +89,7 @@
     .modal-foot { padding: 12px 16px; background: #020617; border-top: 1px solid #1e293b; display: flex; justify-content: space-between; }
 
         /* Executive Dashboard & KPI Grid */
-    .exec-panel { background: #060b14; border-bottom: 1px solid #1e293b; padding: 12px 14px; overflow-y: auto; max-height: 54vh; flex-shrink: 0; }
+    .exec-panel { background: #060b14; border-bottom: 1px solid #1e293b; padding: 12px 14px; flex-shrink: 0; }
         .kpi-strip { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-bottom: 12px; }
     .kpi-card { background: #0f172a; border: 1px solid #1e293b; border-radius: 8px; padding: 10px 12px; }
     .kpi-title { font-size: 10px; text-transform: uppercase; color: #94a3b8; font-weight: 700; }
@@ -132,12 +132,15 @@
       #printArea table { width: 100%; border-collapse: collapse; margin-top: 12px; }
       #printArea th, #printArea td { border: 1px solid #cbd5e1; padding: 6px 8px; text-align: left; font-size: 11px; color: #0f172a !important; }
       #printArea th { background: #f1f5f9 !important; font-weight: 700; }
-    }/* STEP 1: UNIVERSAL RESPONSIVE & SCROLLBAR FIX */
-@media (max-width: 1023px) {
-  header { flex-direction: column !important; align-items: stretch !important; height: auto !important; }
-  .workspace { flex-direction: column !important; }
-  aside { width: 100% !important; border-right: none !important; border-bottom: 1px solid #1e293b; }
-}
+     /* STEP 1: UNIVERSAL RESPONSIVE & SCROLLBAR FIX */
+  html { overflow-y: scroll !important; }
+  @media (max-width: 1023px) {
+    header { flex-direction: column !important; align-items: stretch !important; height: auto !important; }
+    .workspace { flex-direction: column !important; }
+    aside { width: 100% !important; border-right: none !important; border-bottom: 1px solid #1e293b; }
+    .kpi-strip { grid-template-columns: repeat(2, 1fr) !important; }
+    .dash-grid { grid-template-columns: 1fr !important; }
+  }
 ::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-track { background: #020617; }
 ::-webkit-scrollbar-thumb { background: #2b4168; border-radius: 4px; }
