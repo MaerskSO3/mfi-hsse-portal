@@ -258,15 +258,16 @@
     <main>
       <div class="toolbar">
         <input id="searchInput" style="width:300px" oninput="renderTable()" type="text" placeholder="Search Control No., Report Name, ISO/DOLE Ref..." />
-        <div class="quick-btns" id="quickEntryBar" style="display:flex;gap:6px;flex-wrap:wrap">
+               <div class="quick-btns" id="quickEntryBar" style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;align-items:center">
           <button type="button" class="btn btn-sky" data-mod="08" onclick="openClinicInventoryModal('FA', 'ledger')">+ Clinic &amp; FA Inventory</button>
-          <button type="button" class="btn btn-green" data-mod="12" onclick="openCountryGlobalModal()">+ Country Global Task</button>
           <button type="button" class="btn btn-sky" data-mod="08" onclick="openEntryModal('BP')">+ BP Monitoring</button>
           <button type="button" class="btn btn-sky" data-mod="04" onclick="openEntryModal('WSOR')">+ WSOR Walkthrough</button>
           <button type="button" class="btn btn-sky" data-mod="03" onclick="openEntryModal('JHA')">+ JHA Register</button>
           <button type="button" class="btn btn-sky" data-mod="08" onclick="openEntryModal('TBT')">+ Toolbox Talk</button>
           <button type="button" class="btn btn-sky" data-mod="09" onclick="openEntryModal('FIRE')">+ Fire Ex Check</button>
+          <button type="button" class="btn btn-green" data-mod="12" onclick="openCountryGlobalModal()">+ Country Global Task</button>
           <button type="button" class="btn btn-green" data-mod="06" onclick="openEntryModal('MANPOWER')">+ Manpower (159)</button>
+          <button type="button" class="btn btn-green" data-mod="02" onclick="openGovtReportorialModal()">🏛 Gov't Reportorial</button>
         </div>
       </div>
 
@@ -2320,14 +2321,16 @@ async function openSettingsModal(tab) {
   document.getElementById("modalTitle").textContent = "⚙️ System Settings, User Control & Test-Data Cleaner (Admin)";
   document.getElementById("saveEntryBtn").style.display = "none";
 
-  const tabsHtml =
+   const tabsHtml =
     '<div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px;background:#020617;padding:5px;border-radius:6px">' +
       '<button type="button" class="btn ' + (activeTab === "users" ? "btn-sky" : "btn-dark") + '" style="font-size:11px" onclick="openSettingsModal(\'users\')">1. 👥 Users &amp; Registration</button>' +
       '<button type="button" class="btn ' + (activeTab === "roles" ? "btn-sky" : "btn-dark") + '" style="font-size:11px" onclick="openSettingsModal(\'roles\')">2. 🔐 Role Restrictions</button>' +
       '<button type="button" class="btn ' + (activeTab === "series" ? "btn-sky" : "btn-dark") + '" style="font-size:11px" onclick="openSettingsModal(\'series\')">3. 🔢 Series &amp; KPI Rules</button>' +
       '<button type="button" class="btn ' + (activeTab === "clean" ? "btn-red" : "btn-dark") + '" style="font-size:11px" onclick="openSettingsModal(\'clean\')">4. 🧹 Test Tagging &amp; Erase Data</button>' +
-          '<button type="button" class="btn ' + (activeTab === "modules" ? "btn-sky" : "btn-dark") + '" style="font-size:11px" onclick="openSettingsModal(\'modules\')">5. 📚 Module Titles &amp; Subtitles</button>' +
-          '<button type="button" class="btn ' + (activeTab === "terms" ? "btn-sky" : "btn-dark") + '" style="font-size:11px" onclick="openSettingsModal(\'terms\')">6. 📜 Terms &amp; Conditions</button>' +
+      '<button type="button" class="btn ' + (activeTab === "modules" ? "btn-sky" : "btn-dark") + '" style="font-size:11px" onclick="openSettingsModal(\'modules\')">5. 📁 Modules, Folders &amp; Files</button>' +
+      '<button type="button" class="btn ' + (activeTab === "terms" ? "btn-sky" : "btn-dark") + '" style="font-size:11px" onclick="openSettingsModal(\'terms\')">6. 📜 Terms &amp; Conditions</button>' +
+      '<button type="button" class="btn ' + (activeTab === "company" ? "btn-sky" : "btn-dark") + '" style="font-size:11px" onclick="openSettingsModal(\'company\')">7. 🏢 Company Details</button>' +
+      '<button type="button" class="btn ' + (activeTab === "govt" ? "btn-green" : "btn-dark") + '" style="font-size:11px" onclick="openSettingsModal(\'govt\')">8. 🌐 Gov\'t Portal Links</button>' +
     '</div>';
 
   let bodyHtml = tabsHtml;
@@ -2383,10 +2386,12 @@ async function openSettingsModal(tab) {
         '</tr>';
       }).join("") +
       '</tbody></table>';
-  } else if (activeTab === "roles") {
+    } else if (activeTab === "roles") {
+    const champMods = (portalSettings.roleModules && portalSettings.roleModules.safety_champion) ? portalSettings.roleModules.safety_champion : ["01","02","03","04","05","06","07","08","09","10","11","12"];
     bodyHtml +=
-      '<p style="font-size:11px;color:#94a3b8;margin-bottom:8px">Define exact module restrictions per user classification (comma-separated module codes 01–12):</p>' +
-      '<div class="field"><label>Safety Officer (Admin)</label><input value="ALL MODULES (01–12) + SETTINGS + DELETE + USER CONTROL" readonly style="color:#34d399" /></div>' +
+      '<p style="font-size:11px;color:#94a3b8;margin-bottom:8px">Define exact module restrictions per user classification (comma-separated module codes 01-12):</p>' +
+      '<div class="field"><label>Safety Officer (Admin)</label><input value="ALL MODULES (01-12) + SETTINGS + DELETE + USER CONTROL" readonly style="color:#34d399" /></div>' +
+      '<div class="field"><label>Safety Champion Allowed Modules</label><input id="set_mod_champ" value="' + champMods.join(", ") + '" /></div>' +
       '<div class="field"><label>Management Allowed Modules</label><input id="set_mod_mgmt" value="' + portalSettings.roleModules.management.join(", ") + '" /></div>' +
       '<div class="field"><label>Operations Allowed Modules</label><input id="set_mod_ops" value="' + portalSettings.roleModules.operations.join(", ") + '" /></div>' +
       '<div class="field"><label>Clinic / Nurse Allowed Modules</label><input id="set_mod_clinic" value="' + portalSettings.roleModules.clinic_nurse.join(", ") + '" /></div>' +
@@ -2407,54 +2412,118 @@ async function openSettingsModal(tab) {
       '<div style="background:#020617;border:1px solid #38bdf8;border-radius:6px;padding:12px;margin-bottom:12px">' +
         '<div style="display:flex;justify-content:space-between;align-items:center">' +
           '<div>' +
-            '<div style="font-weight:800;color:#fff;font-size:12px">🧪 Automatic [TEST] Prefix Mode: ' + (portalSettings.testingMode ? '<span style="color:#fcd34d">ACTIVE (ON)</span>' : '<span style="color:#34d399">LIVE PRODUCTION (OFF)</span>') + '</div>' +
+            '<div style="font-weight:800;color:#fff;font-size:12px">🏷️ Automatic [TEST] Prefix Mode: ' + (portalSettings.testingMode ? '<span style="color:#fcd34d">ACTIVE (ON)</span>' : '<span style="color:#34d399">LIVE PRODUCTION (OFF)</span>') + '</div>' +
             '<div style="font-size:11px;color:#94a3b8;margin-top:3px">While ON, every new entry and uploaded file automatically gets <strong>[TEST]</strong> added to its name and storage file path so you can easily erase all test records later.</div>' +
           '</div>' +
           '<button type="button" class="btn ' + (portalSettings.testingMode ? "btn-green" : "btn-dark") + '" onclick="toggleTestingMode()">' + (portalSettings.testingMode ? "Switch to LIVE Mode" : "Turn ON [TEST] Mode") + '</button>' +
         '</div>' +
       '</div>' +
       '<div style="background:rgba(220,38,38,0.12);border:1px solid #ef4444;border-radius:6px;padding:12px">' +
-        '<div style="font-weight:800;color:#fca5a5;font-size:12px;margin-bottom:6px">🧹 Erase Test Entries &amp; Reset Portal to Zero for Official Go-Live</div>' +
+        '<div style="font-weight:800;color:#fca5a5;font-size:12px;margin-bottom:6px">🗑️ Erase Test Entries &amp; Reset Portal to Zero for Official Go-Live</div>' +
         '<p style="font-size:11px;color:#cbd5e1;margin-bottom:10px">Choose whether to delete only <strong>[TEST]</strong> entries &amp; <strong>[TEST]_</strong> files, or wipe <strong>ALL</strong> database entries and local test counters to start fresh from zero reports.</p>' +
         '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
           '<button type="button" class="btn btn-sky" style="flex:1" onclick="eraseTestEntriesOnly()">1. Delete Only [TEST] Entries &amp; Files</button>' +
           '<button type="button" class="btn btn-red" style="flex:1" onclick="eraseAllEntriesToZero()">2. Erase ALL Entries (Start From Zero)</button>' +
         '</div>' +
       '</div>';
-  }
-    else if (activeTab === "modules") {
+  } else if (activeTab === "modules") {
     const modCodes = new Array("01","02","03","04","05","06","07","08","09","10","11","12");
+    const treeData = portalSettings.moduleTree || {};
     bodyHtml +=
-      '<p style="font-size:11px;color:#94a3b8;margin-bottom:8px">Edit the official Title and Subtitle / Scope for each module (01–12). Changes immediately update the sidebar, register table, and File Vault:</p>' +
-      '<table><thead><tr><th>Code</th><th>Official Module Title</th><th>Subtitle / Scope Description</th></tr></thead><tbody>' +
+      '<p style="font-size:11px;color:#94a3b8;margin-bottom:8px">Edit all 3 hierarchy levels: <strong>Level 1 (Module Title)</strong>, <strong>Level 2 (Sub-Folder Titles)</strong>, and <strong>Level 3 (Sub-sub Module / Requirement / File Names)</strong>.</p>' +
       modCodes.map(function(c) {
         const sample = registers.find(function(r) { return r.modCode === c; });
         const curTitle = (portalSettings.customModules && portalSettings.customModules[c] && portalSettings.customModules[c].title) || (sample ? sample.module : c + " - Module");
         const curSub = (portalSettings.customModules && portalSettings.customModules[c] && portalSettings.customModules[c].sub) || "";
-        return '<tr>' +
-          '<td class="code-cell">' + c + '</td>' +
-          '<td><input id="mod_t_' + c + '" value="' + curTitle.replace(/"/g, '&quot;') + '" /></td>' +
-          '<td><input id="mod_s_' + c + '" value="' + curSub.replace(/"/g, '&quot;') + '" placeholder="Subtitle / ISO / DOLE scope..." /></td>' +
-        '</tr>';
+        const modFolders = treeData[c] || [];
+        const modFiles = registers.filter(function(r) { return r.modCode === c; });
+
+        return '<div style="background:#020617;border:1px solid #1e293b;border-radius:6px;padding:10px;margin-bottom:10px">' +
+          '<div style="display:flex;gap:6px;align-items:center;margin-bottom:6px">' +
+            '<span class="code-cell" style="font-weight:800">MOD ' + c + '</span>' +
+            '<input id="mod_t_' + c + '" value="' + curTitle.replace(/"/g, "&quot;") + '" placeholder="Module Title" style="flex:1;font-weight:700" />' +
+            '<input id="mod_s_' + c + '" value="' + curSub.replace(/"/g, "&quot;") + '" placeholder="Subtitle / ISO Ref" style="width:180px" />' +
+            '<button type="button" class="btn btn-sky" style="padding:5px 8px;font-size:10px" onclick="adminAddSubFolder(\'' + c + '\')">+ Sub-Folder</button>' +
+          '</div>' +
+
+          '<div style="margin-left:16px;border-left:2px solid #0284c7;padding-left:10px;margin-bottom:6px">' +
+            '<div style="font-size:10px;color:#38bdf8;font-weight:700;margin-bottom:4px">📂 Sub-Folders (Level 2):</div>' +
+            (modFolders.length ? modFolders.map(function(sf, sIdx) {
+              return '<div style="display:flex;gap:5px;margin-bottom:4px;align-items:center">' +
+                '<input value="' + (sf.name || "").replace(/"/g, "&quot;") + '" onchange="adminRenameSubFolder(\'' + c + '\',' + sIdx + ',this.value)" placeholder="Sub-folder title" style="flex:1;font-size:11px;padding:4px 8px" />' +
+                '<button type="button" class="btn btn-red" style="padding:3px 7px;font-size:10px" onclick="adminDeleteSubFolder(\'' + c + '\',' + sIdx + ')">✕</button>' +
+              '</div>';
+            }).join("") : '<div style="font-size:10px;color:#64748b;font-style:italic">No custom sub-folders yet. Click + Sub-Folder to add.</div>') +
+          '</div>' +
+
+          '<div style="margin-left:16px;border-left:2px solid #10b981;padding-left:10px">' +
+            '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">' +
+              '<span style="font-size:10px;color:#34d399;font-weight:700">📄 Sub-Sub Modules / Requirement &amp; File Names (Level 3):</span>' +
+              '<button type="button" class="btn btn-green" style="padding:2px 7px;font-size:10px" onclick="adminAddRegisterRequirement(\'' + c + '\')">+ Add Requirement / File</button>' +
+            '</div>' +
+            modFiles.map(function(rf) {
+              return '<div style="display:flex;gap:5px;margin-bottom:4px;align-items:center">' +
+                '<span class="code-cell" style="font-size:10px;width:54px">' + rf.code + '</span>' +
+                '<input id="reg_name_' + rf.code + '" value="' + (rf.name || "").replace(/"/g, "&quot;") + '" placeholder="Requirement / File Name" style="flex:1;font-size:11px;padding:4px 8px" />' +
+                '<input id="reg_ref_' + rf.code + '" value="' + (rf.ref || "").replace(/"/g, "&quot;") + '" placeholder="ISO / DOLE Ref" style="width:140px;font-size:11px;padding:4px 8px" />' +
+              '</div>';
+            }).join("") +
+          '</div>' +
+        '</div>';
       }).join("") +
-      '</tbody></table>' +
-      '<button type="button" class="btn btn-green" style="width:100%;padding:9px;margin-top:8px" onclick="saveCustomModuleTitles()">Save Module Titles &amp; Subtitles</button>';
-  }
-    else if (activeTab === "terms") {
+      '<button type="button" class="btn btn-green" style="width:100%;padding:10px;margin-top:6px;position:sticky;bottom:0" onclick="saveCustomModuleTitles()">💾 Save All Module Titles, Sub-Folders &amp; File Names</button>';
+  } else if (activeTab === "company") {
+    const comp = portalSettings.companyDetails || {
+      name: "MAERSK FILIPINAS INC.",
+      subtitle: "LIVE HSSE PORTAL",
+      series: "Series: MFI-DVO-HSSE",
+      address: "Container Depot 1 & Depot 2 • Tibungco, Bunawan, Davao City",
+      logoUrl: "",
+      locations: ["Depot 1", "Depot 2"]
+    };
+    bodyHtml +=
+      '<p style="font-size:11px;color:#94a3b8;margin-bottom:8px">Customize Company Name, Address, Logo, and Locations/Clusters across the entire portal (white-label / multi-site ready):</p>' +
+      '<div class="grid-2">' +
+        '<div class="field"><label>Company Name</label><input id="set_comp_name" value="' + (comp.name || "").replace(/"/g, "&quot;") + '" /></div>' +
+        '<div class="field"><label>Portal Header Badge / Tagline</label><input id="set_comp_sub" value="' + (comp.subtitle || "").replace(/"/g, "&quot;") + '" /></div>' +
+      '</div>' +
+      '<div class="grid-2">' +
+        '<div class="field"><label>Control Series Badge</label><input id="set_comp_series" value="' + (comp.series || "").replace(/"/g, "&quot;") + '" /></div>' +
+        '<div class="field"><label>Locations / Clusters (Comma-Separated)</label><input id="set_comp_locs" value="' + (comp.locations || ["Depot 1", "Depot 2"]).join(", ") + '" placeholder="Depot 1, Depot 2" /></div>' +
+      '</div>' +
+      '<div class="field"><label>Company Site / Facility Address</label><input id="set_comp_addr" value="' + (comp.address || "").replace(/"/g, "&quot;") + '" /></div>' +
+      '<div class="grid-2">' +
+        '<div class="field"><label>Company Logo Image URL (Optional)</label><input id="set_comp_logo_url" value="' + (comp.logoUrl || "").replace(/"/g, "&quot;") + '" placeholder="https://... (leave blank for ★ emblem)" /></div>' +
+        '<div class="field"><label>Or Upload Logo Image File</label><input id="set_comp_logo_file" type="file" accept="image/*" onchange="handleCompanyLogoFile(event)" /></div>' +
+      '</div>' +
+      '<button type="button" class="btn btn-green" style="width:100%;padding:9px" onclick="saveCompanyDetailsSettings()">💾 Save Company Details &amp; Locations</button>';
+  } else if (activeTab === "govt") {
+    const gl = portalSettings.govtLinks || {
+      dole: "https://dole.gov.ph",
+      denr: "https://emb.gov.ph",
+      cmr: "https://emb.gov.ph",
+      smr: "https://emb.gov.ph"
+    };
+    bodyHtml +=
+      '<p style="font-size:11px;color:#94a3b8;margin-bottom:8px">Configure the official government website links opened by the green <strong>🏛 Gov\'t Reportorial</strong> button:</p>' +
+      '<div class="field"><label>1. DOLE Website Reportorial Submission URL</label><input id="set_gl_dole" type="url" value="' + (gl.dole || "") + '" placeholder="https://dole.gov.ph" /></div>' +
+      '<div class="field"><label>2. DENR-EMB Official Website URL</label><input id="set_gl_denr" type="url" value="' + (gl.denr || "") + '" placeholder="https://emb.gov.ph" /></div>' +
+      '<div class="field"><label>3. CMR Report (Compliance Monitoring Report) URL</label><input id="set_gl_cmr" type="url" value="' + (gl.cmr || "") + '" placeholder="https://emb.gov.ph" /></div>' +
+      '<div class="field"><label>4. SMR Report (Self-Monitoring Report) URL</label><input id="set_gl_smr" type="url" value="' + (gl.smr || "") + '" placeholder="https://emb.gov.ph" /></div>' +
+      '<button type="button" class="btn btn-green" style="width:100%;padding:9px" onclick="saveGovtLinksSettings()">💾 Save Government Reportorial Links</button>';
+  } else if (activeTab === "terms") {
     bodyHtml +=
       '<div style="background:#020617;border:1px solid #1e293b;border-radius:6px;padding:12px;font-size:11px;line-height:1.55;color:#cbd5e1">' +
-        '<h4 style="color:#38bdf8;margin-bottom:6px">📜 Maersk Filipinas Inc. (Tibungco Depot 1 &amp; 2) — HSSE Portal Terms &amp; Conditions</h4>' +
-        '<p style="margin-bottom:6px"><strong>1. Authorized Access &amp; Ownership:</strong> This portal is exclusively owned and governed by the designated Safety Officer (Admin — <code>maerskhsse.s03@gmail.com</code>). Only manually registered personnel may access modules within their assigned role classification.</p>' +
-        '<p style="margin-bottom:6px"><strong>2. Data Accuracy &amp; Audit Integrity:</strong> All encoded safety records, permits (PTW), walkthrough findings (WSOR), clinic vitals, and incident/CAPA logs constitute official ISO 45001:2018 and DOLE OSH (R.A. 11058 / D.O. 198-18) compliance documentation. Falsification or unauthorized alteration of records is strictly prohibited.</p>' +
-        '<p style="margin-bottom:6px"><strong>3. Medical &amp; Personal Data Privacy:</strong> Personnel Blood Pressure, medical vitals, and First-Aid treatment records (Modules 05 &amp; 08) are confidential occupational health data governed by the Philippine Data Privacy Act of 2012 (R.A. 10173) and accessible only to authorized HSSE and Clinic personnel.</p>' +
-        '<p style="margin-bottom:0"><strong>4. Evidence &amp; Retention:</strong> Uploaded photos, scans, and PDF reports are archived in encrypted cloud storage categorized by module series (<code>MFI-DVO-HSSE-01</code> through <code>12</code>) for regulatory and internal Maersk regional audits.</p>' +
+        '<h4 style="color:#38bdf8;margin-bottom:6px">Maersk Filipinas Inc. (Tibungco Depot 1 &amp; 2) — HSSE Portal Terms &amp; Conditions</h4>' +
+        '<p style="margin-bottom:6px"><strong>1. Authorized Access &amp; Ownership:</strong> This portal is exclusively owned and governed by the designated Safety Officer (Admin - <code>maerskhsse.s03@gmail.com</code>). Only manually registered personnel may access modules within their assigned scope.</p>' +
+        '<p style="margin-bottom:6px"><strong>2. Data Accuracy &amp; Audit Integrity:</strong> All encoded safety records, permits (PTW), walkthrough findings (WSOR), clinic vitals, and incident/CAPA logs constitute official ISO 45001:2018 and DOLE OSH (R.A. 11058 / D.O. 198-18) compliance documentation.</p>' +
+        '<p style="margin-bottom:6px"><strong>3. Medical &amp; Personal Data Privacy:</strong> Personnel Blood Pressure, medical vitals, and First-Aid treatment records (Modules 05 &amp; 08) are confidential occupational health data governed by the Philippine Data Privacy Act of 2012 (R.A. 10173).</p>' +
+        '<p style="margin-bottom:0"><strong>4. Evidence &amp; Retention:</strong> Uploaded photos, scans, and PDF reports are archived in encrypted cloud storage categorized by module series (<code>MFI-DVO-HSSE-01</code> through <code>12</code>) for regulatory and internal Maersk regional audit readiness.</p>' +
       '</div>';
   }
-
-  document.getElementById("modalBody").innerHTML = bodyHtml;
+    document.getElementById("modalBody").innerHTML = bodyHtml;
   document.getElementById("entryModal").classList.add("open");
 }
-
 async function adminCreateUserAccount() {
   const full_name = document.getElementById("set_u_name").value.trim();
   const email = document.getElementById("set_u_email").value.trim();
@@ -2503,11 +2572,190 @@ async function adminDeleteUserProfile(userId, email) {
 }
 
 async function saveRoleRestrictions() {
+  const champEl = document.getElementById("set_mod_champ");
+  if (champEl) {
+    portalSettings.roleModules.safety_champion = champEl.value.split(",").map(function(s) { return s.trim(); }).filter(Boolean);
+    ROLE_SCOPES.safety_champion = portalSettings.roleModules.safety_champion;
+  }
   portalSettings.roleModules.management = document.getElementById("set_mod_mgmt").value.split(",").map(function(s) { return s.trim(); }).filter(Boolean);
   portalSettings.roleModules.operations = document.getElementById("set_mod_ops").value.split(",").map(function(s) { return s.trim(); }).filter(Boolean);
   portalSettings.roleModules.clinic_nurse = document.getElementById("set_mod_clinic").value.split(",").map(function(s) { return s.trim(); }).filter(Boolean);
+  ROLE_SCOPES.management = portalSettings.roleModules.management;
+  ROLE_SCOPES.operations = portalSettings.roleModules.operations;
+  ROLE_SCOPES.clinic_nurse = portalSettings.roleModules.clinic_nurse;
   await savePortalSettingsToCloud();
   alert("Role module restrictions saved and applied!");
+}
+
+function openGovtReportorialModal() {
+  const gl = portalSettings.govtLinks || {
+    dole: "https://dole.gov.ph",
+    denr: "https://emb.gov.ph",
+    cmr: "https://emb.gov.ph",
+    smr: "https://emb.gov.ph"
+  };
+  document.getElementById("modalTitle").textContent = "🏛 Government Reportorial Submissions";
+  document.getElementById("saveEntryBtn").style.display = "none";
+  document.getElementById("modalBody").innerHTML =
+    '<p style="color:#94a3b8;font-size:11px;margin-bottom:8px">Click any agency portal below to open its official website directly in a new tab (URLs are editable in ⚙ Settings → Gov\'t Portal Links):</p>' +
+    '<div style="display:flex;flex-direction:column;gap:8px">' +
+      '<a href="' + (gl.dole || "https://dole.gov.ph") + '" target="_blank" rel="noopener noreferrer" class="btn btn-green" style="padding:11px 14px;text-decoration:none;display:flex;justify-content:space-between;align-items:center"><span>1. DOLE Website Reportorial Submission</span><span>↗</span></a>' +
+      '<a href="' + (gl.denr || "https://emb.gov.ph") + '" target="_blank" rel="noopener noreferrer" class="btn btn-green" style="padding:11px 14px;text-decoration:none;display:flex;justify-content:space-between;align-items:center"><span>2. DENR-EMB Official Website</span><span>↗</span></a>' +
+      '<a href="' + (gl.cmr || "https://emb.gov.ph") + '" target="_blank" rel="noopener noreferrer" class="btn btn-green" style="padding:11px 14px;text-decoration:none;display:flex;justify-content:space-between;align-items:center"><span>3. CMR Report (Compliance Monitoring Report)</span><span>↗</span></a>' +
+      '<a href="' + (gl.smr || "https://emb.gov.ph") + '" target="_blank" rel="noopener noreferrer" class="btn btn-green" style="padding:11px 14px;text-decoration:none;display:flex;justify-content:space-between;align-items:center"><span>4. SMR Report (Self-Monitoring Report)</span><span>↗</span></a>' +
+    '</div>';
+  document.getElementById("entryModal").classList.add("open");
+}
+
+async function saveGovtLinksSettings() {
+  portalSettings.govtLinks = {
+    dole: document.getElementById("set_gl_dole").value.trim() || "https://dole.gov.ph",
+    denr: document.getElementById("set_gl_denr").value.trim() || "https://emb.gov.ph",
+    cmr: document.getElementById("set_gl_cmr").value.trim() || "https://emb.gov.ph",
+    smr: document.getElementById("set_gl_smr").value.trim() || "https://emb.gov.ph"
+  };
+  await savePortalSettingsToCloud();
+  alert("Government reportorial website links saved!");
+}
+
+function handleCompanyLogoFile(e) {
+  const file = e.target.files && e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(ev) {
+    document.getElementById("set_comp_logo_url").value = ev.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+function applyCompanyBranding() {
+  const comp = portalSettings.companyDetails;
+  if (!comp) return;
+  const h1 = document.querySelector("header .title-row h1");
+  if (h1 && comp.name) h1.textContent = comp.name;
+  const badge = document.querySelector("header .series-badge");
+  if (badge && comp.series) badge.textContent = comp.series;
+  const sub = document.querySelector("header .subtitle");
+  if (sub && comp.address) sub.textContent = comp.address;
+  const logoBox = document.querySelector("header .logo-box");
+  if (logoBox) {
+    if (comp.logoUrl) {
+      logoBox.innerHTML = '<img src="' + comp.logoUrl + '" alt="Logo" style="width:100%;height:100%;object-fit:contain;border-radius:6px" />';
+    } else {
+      logoBox.textContent = "★";
+    }
+  }
+  const depotSel = document.getElementById("globalDepotFilter");
+  if (depotSel && Array.isArray(comp.locations) && comp.locations.length) {
+    const curVal = depotSel.value;
+    depotSel.innerHTML = '<option value="ALL">All Locations (' + comp.locations.join(" & ") + ')</option>' +
+      comp.locations.map(function(loc) {
+        return '<option value="' + loc + '">' + loc + ' Only</option>';
+      }).join("");
+    if (Array.from(depotSel.options).some(function(o) { return o.value === curVal; })) depotSel.value = curVal;
+  }
+}
+
+async function saveCompanyDetailsSettings() {
+  const locs = document.getElementById("set_comp_locs").value.split(",").map(function(s) { return s.trim(); }).filter(Boolean);
+  portalSettings.companyDetails = {
+    name: document.getElementById("set_comp_name").value.trim() || "MAERSK FILIPINAS INC.",
+    subtitle: document.getElementById("set_comp_sub").value.trim() || "LIVE HSSE PORTAL",
+    series: document.getElementById("set_comp_series").value.trim() || "Series: MFI-DVO-HSSE",
+    address: document.getElementById("set_comp_addr").value.trim() || "Container Depot 1 & Depot 2 • Tibungco, Bunawan, Davao City",
+    logoUrl: document.getElementById("set_comp_logo_url").value.trim(),
+    locations: locs.length ? locs : ["Depot 1", "Depot 2"]
+  };
+  applyCompanyBranding();
+  await savePortalSettingsToCloud();
+  alert("Company details, logo, and locations updated across the portal!");
+}
+
+function adminAddSubFolder(modCode) {
+  const folderName = prompt("Enter new Sub-Folder title for Module " + modCode + ":");
+  if (!folderName || !folderName.trim()) return;
+  portalSettings.moduleTree = portalSettings.moduleTree || {};
+  portalSettings.moduleTree[modCode] = portalSettings.moduleTree[modCode] || [];
+  portalSettings.moduleTree[modCode].push({ name: folderName.trim() });
+  openSettingsModal("modules");
+}
+
+function adminRenameSubFolder(modCode, idx, newName) {
+  if (portalSettings.moduleTree && portalSettings.moduleTree[modCode] && portalSettings.moduleTree[modCode][idx]) {
+    portalSettings.moduleTree[modCode][idx].name = newName.trim();
+  }
+}
+
+function adminDeleteSubFolder(modCode, idx) {
+  if (portalSettings.moduleTree && portalSettings.moduleTree[modCode]) {
+    portalSettings.moduleTree[modCode].splice(idx, 1);
+    openSettingsModal("modules");
+  }
+}
+
+function adminAddRegisterRequirement(modCode) {
+  const reqName = prompt("Enter new Sub-Sub Module / Requirement / File Name for Module " + modCode + ":");
+  if (!reqName || !reqName.trim()) return;
+  const reqRef = prompt("Enter ISO / DOLE Reference (e.g., ISO 45001 Clause 8.1):", "ISO 45001 / DOLE OSH") || "Internal";
+  const existing = registers.filter(function(r) { return r.modCode === modCode; });
+  const nextNum = String(existing.length + 1).padStart(3, "0");
+  const newCode = modCode + "-" + nextNum;
+  const modObj = registers.find(function(r) { return r.modCode === modCode; });
+  registers.push({
+    code: newCode,
+    modCode: modCode,
+    module: modObj ? modObj.module : (modCode + " - Module"),
+    name: reqName.trim(),
+    ref: reqRef.trim(),
+    freq: "Monthly",
+    location: "Depot 1 & 2",
+    status: "Complied",
+    fileUrl: ""
+  });
+  openSettingsModal("modules");
+}
+
+async function saveCustomModuleTitles() {
+  const modCodes = new Array("01","02","03","04","05","06","07","08","09","10","11","12");
+  portalSettings.customModules = portalSettings.customModules || {};
+  portalSettings.customRegisters = portalSettings.customRegisters || {};
+
+  modCodes.forEach(function(c) {
+    const tEl = document.getElementById("mod_t_" + c);
+    const sEl = document.getElementById("mod_s_" + c);
+    if (tEl) {
+      const newTitle = tEl.value.trim();
+      portalSettings.customModules[c] = {
+        title: newTitle,
+        sub: sEl ? sEl.value.trim() : ""
+      };
+      const mIdx = MODULES.findIndex(function(m) { return m.startsWith(c + " -") || m.startsWith(c + " "); });
+      if (mIdx > -1 && newTitle) MODULES[mIdx] = newTitle;
+      registers.forEach(function(r) {
+        if (r.modCode === c && newTitle) r.module = newTitle;
+      });
+    }
+  });
+
+  registers.forEach(function(r) {
+    const nEl = document.getElementById("reg_name_" + r.code);
+    const rEl = document.getElementById("reg_ref_" + r.code);
+    if (nEl && nEl.value.trim()) r.name = nEl.value.trim();
+    if (rEl && rEl.value.trim()) r.ref = rEl.value.trim();
+    portalSettings.customRegisters[r.code] = {
+      modCode: r.modCode,
+      module: r.module,
+      name: r.name,
+      ref: r.ref,
+      freq: r.freq,
+      location: r.location
+    };
+  });
+
+  await savePortalSettingsToCloud();
+  renderSidebar();
+  renderTable();
+  alert("All Module Titles, Sub-Folders, and File Names saved & applied!");
 }
 
 async function saveSeriesAndKpiSettings() {
@@ -2651,34 +2899,49 @@ function applySavedCustomFreqsAndModules() {
       }
     });
   }
-  if (portalSettings.customModules) {
-    registers.forEach(function(r) {
-      const cm = portalSettings.customModules[r.modCode];
-      if (cm && cm.title) r.module = cm.title;
+   if (portalSettings.customModules) {
+    Object.keys(portalSettings.customModules).forEach(function(c) {
+      const cm = portalSettings.customModules[c];
+      if (cm && cm.title) {
+        const mIdx = MODULES.findIndex(function(m) { return m.startsWith(c + " -") || m.startsWith(c + " "); });
+        if (mIdx > -1) MODULES[mIdx] = cm.title;
+        registers.forEach(function(r) {
+          if (r.modCode === c) r.module = cm.title;
+        });
+      }
     });
+  }
+  if (portalSettings.customRegisters) {
+    Object.keys(portalSettings.customRegisters).forEach(function(code) {
+      const cr = portalSettings.customRegisters[code];
+      const existing = registers.find(function(r) { return r.code === code; });
+      if (existing) {
+        if (cr.name) existing.name = cr.name;
+        if (cr.ref) existing.ref = cr.ref;
+        if (cr.module) existing.module = cr.module;
+      } else if (cr.modCode && cr.name) {
+        registers.push({
+          code: code,
+          modCode: cr.modCode,
+          module: cr.module || (cr.modCode + " - Module"),
+          name: cr.name,
+          ref: cr.ref || "Internal",
+          freq: cr.freq || "Monthly",
+          location: cr.location || "Depot 1 & 2",
+          status: "Complied",
+          fileUrl: ""
+        });
+      }
+    });
+  }
+  if (portalSettings.roleModules && portalSettings.roleModules.safety_champion) {
+    ROLE_SCOPES.safety_champion = portalSettings.roleModules.safety_champion;
+  }
+  if (typeof applyCompanyBranding === "function") {
+    applyCompanyBranding();
   }
 }
 applySavedCustomFreqsAndModules();
-
-async function saveCustomModuleTitles() {
-  const modCodes = new Array("01","02","03","04","05","06","07","08","09","10","11","12");
-  portalSettings.customModules = portalSettings.customModules || {};
-  modCodes.forEach(function(c) {
-    const tEl = document.getElementById("mod_t_" + c);
-    const sEl = document.getElementById("mod_s_" + c);
-    if (tEl) {
-      portalSettings.customModules[c] = {
-        title: tEl.value.trim(),
-        sub: sEl ? sEl.value.trim() : ""
-      };
-    }
-  });
-  applySavedCustomFreqsAndModules();
-  await savePortalSettingsToCloud();
-  renderSidebar();
-  renderTable();
-  alert("Module Titles & Subtitles updated across the entire portal!");
-}
 
 // ============================================================
 // 11. 2-STAGE WSOR WALKTHROUGH (1. LOG FINDING -> 2. CLOSE OPEN)
