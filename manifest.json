@@ -1,5 +1,5 @@
 {
-  "name": "Maersk Filipinas Inc. — Live HSSE Portal",
+  "name": "MFI HSSE Portal",
   "short_name": "MFI HSSE",
   "description": "Maersk Filipinas Inc. Depot 1 & 2 Tibungco Live HSSE Reportorial & Compliance Portal",
   "start_url": "/mfi-hsse-portal/",
@@ -10,7 +10,7 @@
   "orientation": "any",
   "icons": [
     {
-      "src": "data:image/svg+xml,%3Csvg xmlns='http://w3.org' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='96' fill='%2300243d'/%3E%3Crect x='24' y='24' width='464' height='464' rx='80' fill='none' stroke='%2338bdf8' stroke-width='16'/%3E%3Ctext x='256' y='330' font-size='270' text-anchor='middle' fill='%2338bdf8' font-family='sans-serif' font-weight='bold'%3E%E2%98%85%3C/text%3E%3C/svg%3E",
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://w3.org' viewBox='0 0 512 512'%3E%3Crect x='32' y='32' width='448' height='448' rx='72' fill='%2342B0D5'/%3E%3Cpolygon fill='%23FFFFFF' points='256,64 282,198 408,136 308,238 442,296 296,296 346,434 256,318 166,434 216,296 70,296 204,238 104,136 230,198'/%3E%3C/svg%3E",
       "sizes": "512x512",
       "type": "image/svg+xml",
       "purpose": "any maskable"
