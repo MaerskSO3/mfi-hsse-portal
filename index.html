@@ -19,7 +19,7 @@
     .auth-msg.err { display: block; background: rgba(239,68,68,0.2); border: 1px solid #ef4444; color: #fca5a5; }
     .auth-msg.ok { display: block; background: rgba(16,185,129,0.2); border: 1px solid #10b981; color: #6ee7b7; }
 
-    header { background: #00243d; border-bottom: 1px solid #0369a1; padding: 10px 16px; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; gap: 12px; }
+   header { background: #00243d; border-bottom: 1px solid #0369a1; padding: 10px 16px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; flex-shrink: 0; gap: 12px; }
     .brand { display: flex; align-items: center; gap: 12px; }
     .logo-box { width: 38px; height: 38px; background: #38bdf8; color: #020617; font-weight: 900; font-size: 20px; border-radius: 6px; display: flex; align-items: center; justify-content: center; }
     .title-row { display: flex; align-items: center; gap: 8px; }
@@ -33,7 +33,7 @@
     .weather-stats strong { color: #fff; font-size: 13px; }
     .weather-pill { padding: 4px 8px; border-radius: 5px; font-size: 11px; font-weight: 700; background: rgba(16,185,129,0.18); color: #6ee7b7; border: 1px solid rgba(16,185,129,0.4); }
 
-    .header-actions { display: flex; align-items: center; gap: 8px; }
+    .header-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
     select, input, textarea { background: #0f172a; border: 1px solid #334155; color: #f8fafc; border-radius: 6px; padding: 7px 10px; font-size: 12px; outline: none; width: 100%; }
     select:focus, input:focus, textarea:focus { border-color: #38bdf8; }
     .btn { border: none; border-radius: 6px; padding: 7px 12px; font-size: 12px; font-weight: 600; cursor: pointer; transition: 0.15s; white-space: nowrap; }
@@ -52,7 +52,7 @@
     .urgent-bar { animation: pulseUrgent 1.8s infinite; border-bottom: 1px solid #ef4444; padding: 6px 16px; display: flex; align-items: center; justify-content: space-between; font-size: 12px; flex-shrink: 0; }
     .urgent-tag { background: #dc2626; color: #fff; font-size: 10px; font-weight: 800; padding: 2px 6px; border-radius: 4px; text-transform: uppercase; margin-right: 8px; }
 
-    .workspace { display: flex; flex: 1; overflow: hidden; }
+    .workspace { display: flex; flex: 1; overflow: visible; }
     aside { width: 260px; background: #0f172a; border-right: 1px solid #1e293b; display: flex; flex-direction: column; justify-content: space-between; overflow-y: auto; flex-shrink: 0; }
     .nav-list { padding: 10px; display: flex; flex-direction: column; gap: 4px; }
     .nav-btn { width: 100%; text-align: left; background: transparent; border: none; color: #cbd5e1; padding: 8px 10px; border-radius: 6px; font-size: 12px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; }
@@ -63,7 +63,7 @@
     .sidebar-stats { padding: 12px; border-top: 1px solid #1e293b; font-size: 11px; color: #94a3b8; display: flex; flex-direction: column; gap: 4px; }
     .stat-row { display: flex; justify-content: space-between; }
 
-    main { flex: 1; display: flex; flex-direction: column; overflow: hidden; background: #020617; }
+    main { flex: 1; min-width: 0; display: flex; flex-direction: column; overflow: visible; background: #020617; }
     .toolbar { padding: 10px 14px; border-bottom: 1px solid #1e293b; background: #090d16; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
     .table-wrap { flex: 1; overflow: auto; }
     table { width: 100%; border-collapse: collapse; font-size: 12px; text-align: left; }
@@ -135,6 +135,8 @@
     }/* STEP 1: UNIVERSAL RESPONSIVE & SCROLLBAR FIX */
 @media (max-width: 1023px) {
   header { flex-direction: column !important; align-items: stretch !important; height: auto !important; }
+  .workspace { flex-direction: column !important; }
+  aside { width: 100% !important; border-right: none !important; border-bottom: 1px solid #1e293b; }
 }
 ::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-track { background: #020617; }
