@@ -4,6 +4,11 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Maersk Filipinas Inc. | Live HSSE Reportorial Portal</title>
+    <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#00243d" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="MFI HSSE" />
   <script>
   (function(){var s=document.createElement("script");s.src="https://"+"cdn.jsdelivr.net"+"/npm/chart.js";document.head.appendChild(s);})();
 </script>
@@ -4131,6 +4136,11 @@ function downloadConsolidatedWsorExcel() {
   a.href = URL.createObjectURL(blob);
   a.download = "MFI-DVO-HSSE-04-002_Consolidated_WSOR_" + new Date().toISOString().slice(0, 10) + ".csv";
   a.click();
+}
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("./sw.js").catch(() => {});
+  });
 }
 
 </script>
