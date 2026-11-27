@@ -2526,34 +2526,23 @@ async function openSettingsModal(tab) {
 }
 async function adminCreateUserAccount() {
   const full_name = document.getElementById("set_u_name").value.trim();
-  const email = document.getElementById("set_u_email").value.trim();
+  const email = document.getElementById("set_u_email").value.trim().toLowerCase();
   const password = document.getElementById("set_u_pass").value.trim();
   const role = document.getElementById("set_u_role").value;
   const depot_scope = document.getElementById("set_u_depot").value;
   if (!full_name || !email || password.length < 6) return alert("Enter Full Name, Email, and Password (at least 6 characters).");
 
-  // Create user via secondary non-persisting client so Safety Officer stays logged in
-  const tempClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
-    auth: { persistSession: false, autoRefreshToken: false }
+  const { error } = await sb.rpc("admin_create_portal_user", {
+    p_email: email,
+    p_password: password,
+    p_full_name: full_name,
+    p_role: role,
+    p_depot: depot_scope
   });
-  const res = await tempClient.auth.signUp({
-    email: email,
-    password: password,
-    options: { data: { full_name: full_name } }
-  });
-  if (res.error) return alert("Registration error: " + res.error.message);
 
-  if (res.data && res.data.user) {
-    await sb.from("profiles").upsert({
-      id: res.data.user.id,
-      email: email,
-      full_name: full_name,
-      role: role,
-      depot_scope: depot_scope,
-      is_active: true
-    });
-  }
-  alert("User " + full_name + " (" + role.toUpperCase() + ") registered successfully!");
+  if (error) return alert("Registration error: " + error.message);
+
+  alert("User " + full_name + " (" + role.toUpperCase() + ") activated immediately!");
   openSettingsModal("users");
 }
 
